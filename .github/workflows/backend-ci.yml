@@ -1,0 +1,77 @@
+name: Backend CI
+
+# backend/package-lock.json isn't committed yet either (see
+# backend/README-LOCKFILE.md — it needs real npm registry resolution this
+# sandbox didn't have), so this uses `npm install` rather than `npm ci`
+# until a real lockfile is generated and committed. Once one exists,
+# switch the install step below to `npm ci` for reproducible installs.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mench
+          POSTGRES_PASSWORD: mench
+          POSTGRES_DB: mench
+        ports: [ '5432:5432' ]
+        options: >-
+          --health-cmd "pg_isready -U mench"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports: [ '6379:6379' ]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgres://mench:mench@localhost:5432/mench
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-only-access-secret
+      JWT_REFRESH_SECRET: ci-only-refresh-secret
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Unit tests
+        run: npm test
+
+      - name: E2E tests
+        run: npm run test:e2e

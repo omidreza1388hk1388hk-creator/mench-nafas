@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Mench" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Shown for the brief window before Compose takes over MainActivity.
+         Replaced by the full animated MENCH startup sequence in Phase 6
+         (spec section 58); for now it's a static branded background so
+         there is never a blank white flash on launch. -->
+    <style name="Theme.Mench.Splash" parent="Theme.Mench">
+        <item name="android:windowBackground">@color/mench_ink_900</item>
+        <item name="android:statusBarColor">@color/mench_ink_900</item>
+    </style>
+</resources>

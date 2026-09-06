@@ -1,0 +1,165 @@
+<resources>
+    <string name="app_name">منچ بازی</string>
+    <string name="auth_phone_title">شماره تلفن خود را وارد کنید</string>
+    <string name="auth_phone_hint">شماره تلفن</string>
+    <string name="auth_phone_continue">ادامه</string>
+    <string name="auth_otp_title">کدی که ارسال کردیم را وارد کنید</string>
+    <string name="auth_otp_hint">کد تایید</string>
+    <string name="auth_otp_verify">تایید</string>
+    <string name="auth_otp_resend">ارسال مجدد کد</string>
+    <string name="auth_error_generic">مشکلی پیش آمد. لطفاً دوباره تلاش کنید.</string>
+    <string name="auth_error_invalid_code">کد وارد شده نادرست یا منقضی شده است.</string>
+
+    <string name="chat_new_conversation">گفتگوی جدید</string>
+    <string name="chat_no_conversations">هنوز گفتگویی نیست. برای شروع + را بزنید.</string>
+    <string name="chat_start_conversation_title">شروع گفتگو</string>
+    <string name="chat_start_conversation_action">شروع</string>
+    <string name="chat_typing_indicator">در حال تایپ…</string>
+    <string name="chat_message_state_sending">در حال ارسال…</string>
+    <string name="chat_message_state_sent">ارسال شد</string>
+    <string name="chat_message_state_read">خوانده شد</string>
+    <string name="chat_message_state_failed">ارسال ناموفق</string>
+    <string name="chat_composer_hint">پیام</string>
+    <string name="chat_send">ارسال</string>
+    <string name="chat_attach">پیوست</string>
+    <string name="chat_view_image">نمایش تصویر</string>
+    <string name="chat_record_voice">ضبط پیام صوتی</string>
+    <string name="chat_stop_recording">توقف ضبط</string>
+    <string name="chat_mic_permission_denied">برای ضبط پیام صوتی، دسترسی به میکروفون لازم است</string>
+    <string name="chat_play_voice">پخش</string>
+    <string name="chat_play_video">پخش ویدیو</string>
+    <string name="chat_pause_voice">توقف</string>
+    <string name="chat_edit">ویرایش</string>
+    <string name="chat_delete">حذف</string>
+    <string name="chat_forward">فوروارد</string>
+    <string name="chat_forward_to">فوروارد به…</string>
+    <string name="chat_forwarded_label">فوروارد شده</string>
+    <string name="chat_message_edited">(ویرایش شد)</string>
+    <string name="chat_message_deleted">این پیام حذف شد</string>
+    <string name="chat_editing_message">در حال ویرایش پیام</string>
+    <string name="chat_cancel_edit">لغو ویرایش</string>
+    <string name="chat_save_edit">ذخیره</string>
+    <string name="chat_new_group_title">گروه جدید</string>
+    <string name="chat_new_group_action">گروه جدید</string>
+    <string name="chat_new_direct_action">مکالمه جدید</string>
+    <string name="chat_group_name_hint">نام گروه</string>
+    <string name="chat_add_member_hint">شماره تلفن</string>
+    <string name="chat_add_member_action">افزودن</string>
+    <string name="chat_remove_member">حذف</string>
+    <string name="chat_leave_group">ترک گروه</string>
+    <string name="chat_create_group_action">ساخت گروه</string>
+    <string name="chat_group_members_title">اعضا</string>
+    <string name="chat_group_role_owner">مالک</string>
+    <string name="chat_group_role_member">عضو</string>
+    <string name="chat_group_info">اطلاعات گروه</string>
+    <string name="chat_back">بازگشت</string>
+
+    <string name="settings_title">تنظیمات</string>
+    <string name="settings_account">حساب کاربری</string>
+    <string name="settings_privacy_security">حریم خصوصی و امنیت</string>
+    <string name="settings_data_storage">داده و حافظه</string>
+    <string name="settings_version">نسخه %1$s</string>
+    <string name="settings_logout">خروج از حساب</string>
+
+    <string name="account_display_name_hint">نام نمایشی</string>
+    <string name="account_username_hint">نام کاربری</string>
+    <string name="account_bio_hint">بیوگرافی</string>
+    <string name="account_save_action">ذخیره</string>
+
+    <string name="applock_locked_title">منچ قفل است</string>
+    <string name="applock_pin_hint">پین</string>
+    <string name="applock_unlock_action">باز کردن قفل</string>
+    <string name="applock_use_biometric">استفاده از اثر انگشت/چهره</string>
+    <string name="applock_continue_action">ادامه</string>
+    <string name="applock_enter_current_pin">پین فعلی را وارد کنید</string>
+    <string name="applock_enter_new_pin">پین جدید را وارد کنید</string>
+    <string name="applock_confirm_new_pin">پین جدید را تأیید کنید</string>
+    <string name="applock_toggle_title">قفل اپلیکیشن</string>
+    <string name="applock_toggle_subtitle">برای باز کردن منچ پین بخواهد</string>
+    <string name="applock_change_pin">پین</string>
+    <string name="applock_change_pin_action">تغییر پین</string>
+    <string name="applock_biometric_toggle">باز کردن قفل با اثر انگشت/چهره</string>
+    <string name="applock_timeout_title">قفل خودکار بعد از</string>
+    <string name="applock_timeout_immediate">بلافاصله</string>
+    <string name="applock_timeout_30s">۳۰ ثانیه</string>
+    <string name="applock_timeout_1m">۱ دقیقه</string>
+    <string name="applock_timeout_5m">۵ دقیقه</string>
+    <string name="applock_timeout_15m">۱۵ دقیقه</string>
+    <string name="applock_biometric_prompt_title">باز کردن قفل منچ</string>
+    <string name="applock_use_pin_instead">استفاده از پین</string>
+
+    <string name="privacy_sessions_title">نشست‌ها</string>
+    <string name="privacy_logout_all_action">خروج از همه‌ی دستگاه‌ها</string>
+    <string name="privacy_logout_all_confirm_title">از همه‌جا خارج شوید؟</string>
+    <string name="privacy_logout_all_confirm_body">این کار شما را از همه‌ی دستگاه‌ها از جمله همین دستگاه خارج می‌کند. برای ورود دوباره باید شماره‌تان را دوباره تأیید کنید.</string>
+
+    <string name="data_storage_cache_size">حافظه‌ی موقت رسانه: %1$s</string>
+    <string name="data_storage_cache_explainer">فقط فایل‌های ذخیره‌شده روی این دستگاه پاک می‌شوند — چیزی از سرور حذف نمی‌شود.</string>
+    <string name="data_storage_clear_cache">پاک کردن حافظه‌ی موقت</string>
+
+    <string name="action_cancel">انصراف</string>
+
+    <!-- فاز ۶ — تماس -->
+    <string name="chat_voice_call">تماس صوتی</string>
+    <string name="chat_video_call">تماس تصویری</string>
+    <string name="call_notification_channel">تماس‌ها</string>
+    <string name="call_incoming_voice">تماس صوتی ورودی…</string>
+    <string name="call_incoming_video">تماس تصویری ورودی…</string>
+    <string name="call_outgoing_voice">در حال تماس…</string>
+    <string name="call_outgoing_video">در حال تماس تصویری…</string>
+    <string name="call_active_voice">تماس صوتی برقرار است</string>
+    <string name="call_active_video">تماس تصویری برقرار است</string>
+    <string name="call_action_accept">پاسخ</string>
+    <string name="call_action_decline">رد تماس</string>
+    <string name="call_action_hangup">پایان تماس</string>
+    <string name="call_connecting">در حال اتصال…</string>
+    <string name="call_ended_status">تماس پایان یافت</string>
+    <string name="call_declined_status">رد شد</string>
+    <string name="call_missed_status">تماس بی‌پاسخ</string>
+    <string name="call_mic_permission_denied">برای برقراری تماس، دسترسی به میکروفون لازم است</string>
+    <string name="call_camera_permission_denied">برای تماس تصویری، دسترسی به دوربین لازم است</string>
+    <string name="call_mute">قطع صدا</string>
+    <string name="call_unmute">فعال کردن صدا</string>
+    <string name="call_speaker_on">بلندگو</string>
+    <string name="call_speaker_off">گوشی</string>
+    <string name="call_switch_camera">تعویض دوربین</string>
+    <string name="call_toggle_video">فعال/غیرفعال کردن ویدیو</string>
+    <string name="call_history_title">تماس‌ها</string>
+
+    <!-- فاز ۶ — اعلان‌ها -->
+    <string name="notification_channel_messages">پیام‌ها</string>
+    <string name="settings_notifications">اعلان‌ها</string>
+    <string name="settings_notification_privacy_title">اعلان‌ها</string>
+    <string name="settings_notification_privacy_description">مشخص کنید وقتی گوشی قفل است، اعلان چه مقدار نمایش داده شود.</string>
+    <string name="settings_notification_privacy_full_content">نمایش فرستنده و متن پیام</string>
+    <string name="settings_notification_privacy_sender_only">فقط نمایش فرستنده</string>
+    <string name="settings_notification_privacy_hide_content">مخفی کردن فرستنده و متن پیام</string>
+
+    <!-- فاز ۶ — جستجو -->
+    <string name="search_hint">جستجو</string>
+    <string name="search_idle_hint">در پیام‌ها، گفتگوها و فایل‌ها جستجو کنید</string>
+    <string name="search_no_results">نتیجه‌ای پیدا نشد</string>
+    <string name="search_error">جستجو ناموفق بود. دوباره تلاش کنید.</string>
+    <string name="search_offline_notice">شما آفلاین هستید — فقط نتایج ذخیره‌شده نمایش داده می‌شود</string>
+    <string name="search_scope_all">همه</string>
+    <string name="search_scope_messages">پیام‌ها</string>
+    <string name="search_scope_conversations">گفتگوها</string>
+    <string name="search_scope_files">فایل‌ها</string>
+    <string name="search_section_chats">گفتگوها</string>
+    <string name="search_section_messages">پیام‌ها</string>
+    <string name="search_section_files">فایل‌ها</string>
+
+    <!-- فاز ۶ — تشخیص مشکلات -->
+    <string name="diagnostics_title">سلامت اتصال</string>
+    <string name="diagnostics_rerun">اجرای دوباره تشخیص</string>
+    <string name="diagnostics_overall_status">وضعیت کلی</string>
+    <string name="diagnostics_status_pass">همه چیز خوب است</string>
+    <string name="diagnostics_status_warning">مشکلاتی شناسایی شد</string>
+    <string name="diagnostics_status_fail">مشکل در اتصال شناسایی شد</string>
+    <string name="diagnostics_check_internet">اینترنت</string>
+    <string name="diagnostics_check_authentication">احراز هویت</string>
+    <string name="diagnostics_check_server">سرور</string>
+    <string name="diagnostics_check_websocket">اتصال بی‌درنگ</string>
+    <string name="diagnostics_check_sync">همگام‌سازی</string>
+    <string name="diagnostics_check_storage">حافظه</string>
+</resources>

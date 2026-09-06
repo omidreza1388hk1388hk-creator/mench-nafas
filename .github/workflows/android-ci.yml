@@ -1,0 +1,63 @@
+name: Android CI
+
+# Builds the Android app and uploads an installable debug APK as a
+# workflow artifact. This repo's gradle-wrapper.jar is intentionally not
+# committed (see android/README-WRAPPER.md — it's a binary that couldn't
+# be authored in the sandbox this project was built in), so the first
+# real step here is to generate a correct, checksum-verified one using a
+# real Gradle install, then proceed with ./gradlew exactly as normal.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Gradle 8.9 (to regenerate the wrapper jar)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Regenerate gradle-wrapper.jar
+        working-directory: android
+        run: gradle wrapper --gradle-version 8.9 --distribution-type bin
+
+      - name: Make gradlew executable
+        working-directory: android
+        run: chmod +x ./gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        # No signing secrets required: the debug build type is signed
+        # with Android's auto-generated debug keystore, which is why this
+        # step needs no repository secrets to produce an installable APK.
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Run unit tests
+        working-directory: android
+        run: ./gradlew testDebugUnitTest --stacktrace
+        continue-on-error: true # surfaced in the log either way; doesn't block getting the APK
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mench-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
