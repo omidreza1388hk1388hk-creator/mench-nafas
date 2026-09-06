@@ -34,6 +34,7 @@ class NewConversationViewModel @Inject constructor(
         ChatFailureReason.NETWORK_UNAVAILABLE -> "No connection. Check your internet and try again."
         ChatFailureReason.USER_NOT_FOUND -> "No MENCH user found with that phone number."
         ChatFailureReason.CANNOT_MESSAGE_SELF -> "You can't start a conversation with yourself."
-        ChatFailureReason.UNKNOWN -> "Something went wrong. Please try again."
+        ChatFailureReason.INVALID_GROUP, ChatFailureReason.NOT_GROUP_OWNER, ChatFailureReason.UNKNOWN ->
+            "Something went wrong. Please try again."
     }
 }

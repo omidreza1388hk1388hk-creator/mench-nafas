@@ -640,6 +640,19 @@ class ChatRepositoryImpl @Inject constructor(
                 conversationDao.updateTitle(event.conversationId, event.title)
                 _groupChanges.emit(GroupChangeSignal.Renamed(event.conversationId, event.title))
             }
+
+            // Call signaling events are handled by the calls feature (see
+            // CallViewModel), which collects realtimeClient.events on its
+            // own — nothing for the chat repository to do with them.
+            is ServerToClientEvent.CallIncoming,
+            is ServerToClientEvent.CallAccepted,
+            is ServerToClientEvent.CallDeclined,
+            is ServerToClientEvent.CallEnded,
+            is ServerToClientEvent.CallOffer,
+            is ServerToClientEvent.CallAnswer,
+            is ServerToClientEvent.CallIceCandidate,
+            is ServerToClientEvent.CallHangup,
+            -> Unit
         }
     }
 

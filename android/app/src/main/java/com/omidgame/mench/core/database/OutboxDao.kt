@@ -17,4 +17,7 @@ interface OutboxDao {
 
     @Query("DELETE FROM outbox WHERE operationId = :operationId")
     suspend fun delete(operationId: String)
+
+    @Query("SELECT COUNT(*) FROM outbox WHERE state = :state")
+    suspend fun countByState(state: String): Int
 }

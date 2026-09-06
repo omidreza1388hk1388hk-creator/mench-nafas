@@ -66,4 +66,12 @@ interface MessageDao {
 
     @Query("UPDATE messages SET reactionsJson = :reactionsJson WHERE serverId = :serverId")
     suspend fun updateReactions(serverId: String, reactionsJson: String?)
+
+    /** Phase 6 offline search fallback — matches by message body only (attachment filenames aren't indexed here); excludes deleted messages, matching what the server-side search endpoint would return. */
+    @Query("""
+        SELECT * FROM messages
+        WHERE body LIKE '%' || :query || '%' AND deletedAtEpochMillis IS NULL
+        ORDER BY createdAtEpochMillis DESC LIMIT :limit
+    """)
+    suspend fun searchLocal(query: String, limit: Int): List<MessageEntity>
 }

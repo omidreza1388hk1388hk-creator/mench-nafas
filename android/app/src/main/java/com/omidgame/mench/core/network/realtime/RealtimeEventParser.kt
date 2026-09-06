@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalStdlibApi::class)
+
 package com.omidgame.mench.core.network.realtime
 
 import com.squareup.moshi.JsonClass

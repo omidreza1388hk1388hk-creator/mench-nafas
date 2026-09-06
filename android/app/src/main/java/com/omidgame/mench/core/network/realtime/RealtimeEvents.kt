@@ -18,6 +18,7 @@ data class MessageAttachmentSummaryWire(
     val sizeBytes: Long,
     val widthPx: Int?,
     val heightPx: Int?,
+    val durationMs: Long?,
     val hasThumbnail: Boolean,
 )
 

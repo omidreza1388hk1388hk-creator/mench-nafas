@@ -67,7 +67,7 @@ class GroupInfoViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = GroupInfoUiState.Loading
             val selfId = chatRepository.currentUserId()
-            val conversation = chatRepository.observeConversations().firstOrNull { it.id == conversationId }
+            val conversation = chatRepository.observeConversations().firstOrNull()?.find { it.id == conversationId }
             when (val result = chatRepository.listMembers(conversationId)) {
                 is ChatResult.Success -> {
                     val members = result.value
