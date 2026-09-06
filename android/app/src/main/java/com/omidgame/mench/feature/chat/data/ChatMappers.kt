@@ -46,7 +46,7 @@ internal val reactionsListAdapter = Moshi.Builder().build()
 internal fun List<ReactionSummaryResponse>.toReactionsJson(): String? =
     if (isEmpty()) null else reactionsListAdapter.toJson(map { ReactionSummaryLocal(it.emoji, it.userIds) })
 
-internal fun List<ReactionSummaryWire>.toReactionsJson(): String? =
+internal fun List<ReactionSummaryWire>.toReactionsJsonWire(): String? =
     if (isEmpty()) null else reactionsListAdapter.toJson(map { ReactionSummaryLocal(it.emoji, it.userIds) })
 
 internal fun String?.toReactionSummaries(selfUserId: String?): List<ReactionSummary> {
@@ -165,7 +165,7 @@ internal fun MessageWire.toEntity(existingLocalContentUri: String?, existingLoca
         editedAtEpochMillis = editedAt?.let { Instant.parse(it).toEpochMilli() },
         deletedAtEpochMillis = deletedAt?.let { Instant.parse(it).toEpochMilli() },
         forwardedFromMessageId = forwardedFromMessageId,
-        reactionsJson = reactions.toReactionsJson(),
+        reactionsJson = reactions.toReactionsJsonWire(),
     )
 
 internal fun MessageEntity.toDomain(selfUserId: String?): Message = Message(

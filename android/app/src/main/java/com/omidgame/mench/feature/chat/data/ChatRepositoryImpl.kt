@@ -577,7 +577,7 @@ class ChatRepositoryImpl @Inject constructor(
                 messageDao.markDeleted(event.messageId, java.time.Instant.parse(event.deletedAt).toEpochMilli())
             }
             is ServerToClientEvent.ReactionUpdated -> {
-                messageDao.updateReactions(event.messageId, event.reactions.toReactionsJson())
+                messageDao.updateReactions(event.messageId, event.reactions.toReactionsJsonWire())
             }
             is ServerToClientEvent.MessageRead -> {
                 val selfId = selfUserId()
