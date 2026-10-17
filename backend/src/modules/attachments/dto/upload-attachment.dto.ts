@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 
 /**
  * Bound from multipart form fields alongside the file itself (NestJS's
@@ -28,4 +28,15 @@ export class UploadAttachmentDto {
   @IsInt()
   @Min(1)
   heightPx?: number;
+
+  /**
+   * Audio only: base64 of the amplitude samples (one byte each) the recording
+   * device measured. Length/content are validated again in AttachmentsService
+   * once the mime type is known; this only bounds the raw form field.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  @Matches(/^[A-Za-z0-9+/]*={0,2}$/, { message: 'waveform must be base64' })
+  waveform?: string;
 }

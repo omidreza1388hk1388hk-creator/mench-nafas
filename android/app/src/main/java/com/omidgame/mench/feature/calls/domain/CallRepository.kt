@@ -17,4 +17,8 @@ interface CallRepository {
     fun sendIceCandidate(callId: String, candidate: LocalIceCandidate)
     /** Fast-path relay only — endCall() above is still what makes the hangup authoritative server-side; see the backend's chat.gateway.ts doc comment on call.hangup. */
     fun sendHangupSignal(callId: String)
+
+    // --- Phase 2B: in-call extras (relayed only, never stored) ---
+    fun sendChat(callId: String, text: String) {}
+    fun sendReaction(callId: String, emoji: String) {}
 }

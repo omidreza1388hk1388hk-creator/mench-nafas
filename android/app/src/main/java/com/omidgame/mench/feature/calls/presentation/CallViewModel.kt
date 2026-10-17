@@ -31,6 +31,15 @@ class CallViewModel @Inject constructor(
     fun toggleSpeaker() = sessionManager.toggleSpeaker()
     fun switchCamera() = sessionManager.switchCamera()
     fun toggleLocalVideo() = sessionManager.toggleLocalVideo()
+
+    // Phase 2B
+    val chat = sessionManager.chat
+    val unreadChat = sessionManager.unreadChat
+    val reactions = sessionManager.reactions
+    fun selectAudioRoute(route: com.omidgame.mench.feature.calls.domain.AudioRoute) = sessionManager.selectAudioRoute(route)
+    fun sendChat(text: String) = sessionManager.sendChat(text)
+    fun sendReaction(emoji: String) = sessionManager.sendReaction(emoji)
+    fun setChatPanelOpen(open: Boolean) = sessionManager.setChatPanelOpen(open)
     fun attachRenderers(local: org.webrtc.SurfaceViewRenderer, remote: org.webrtc.SurfaceViewRenderer) =
         sessionManager.attachRenderers(local, remote)
 }

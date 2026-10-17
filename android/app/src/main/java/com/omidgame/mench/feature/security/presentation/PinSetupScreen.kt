@@ -1,5 +1,8 @@
 package com.omidgame.mench.feature.security.presentation
 
+import androidx.compose.foundation.background
+import com.omidgame.mench.core.ui.theme.MenchBrand
+import com.omidgame.mench.core.ui.theme.menchTopBarColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -41,7 +44,11 @@ fun PinSetupScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(text = titleFor(state.mode, state.step)) })
+            TopAppBar(
+                modifier = Modifier.background(MenchBrand.heroBrush()),
+                colors = menchTopBarColors(),
+                title = { Text(text = titleFor(state.mode, state.step)) },
+            )
         },
     ) { padding ->
         Column(

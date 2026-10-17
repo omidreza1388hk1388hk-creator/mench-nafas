@@ -7,6 +7,8 @@ export interface UserDto {
   username: string | null;
   avatarUrl: string | null;
   bio: string | null;
+  /** Profile-photo version (ms timestamp) for ?v= cache busting; null = no photo. */
+  avatarVersion: number | null;
 }
 
 export function toUserDto(row: UserRow): UserDto {
@@ -17,5 +19,6 @@ export function toUserDto(row: UserRow): UserDto {
     username: row.username,
     avatarUrl: row.avatar_url,
     bio: row.bio,
+    avatarVersion: row.avatar_version ? Number(row.avatar_version) : null,
   };
 }

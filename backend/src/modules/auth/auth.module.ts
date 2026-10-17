@@ -6,10 +6,12 @@ import { OtpService } from './otp.service';
 import { OtpRepository } from './otp.repository';
 import { SmsProvider } from './sms-provider.interface';
 import { DevSmsProvider } from './dev-sms.provider';
+import { KavenegarSmsProvider } from './kavenegar-sms.provider';
 import { SMS_PROVIDER } from './otp.service';
 import { UsersModule } from '../users/users.module';
 import { DevicesModule } from '../devices/devices.module';
 import { SessionsModule } from '../sessions/sessions.module';
+import { TwoStepModule } from '../two-step/two-step.module';
 
 // JwtAuthGuard lives in SessionsModule, not here — see
 // sessions/jwt-auth.guard.ts for why: its only dependency is
@@ -21,7 +23,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 // below is what makes JwtAuthGuard available to AuthController.
 
 @Module({
-  imports: [UsersModule, DevicesModule, SessionsModule],
+  imports: [UsersModule, DevicesModule, SessionsModule, TwoStepModule],
   controllers: [AuthController],
   providers: [
     AuthService,
@@ -37,6 +39,9 @@ import { SessionsModule } from '../sessions/sessions.module';
         const provider = config.get<string>('OTP_PROVIDER');
         if (provider === 'dev') {
           return new DevSmsProvider();
+        }
+        if (provider === 'kavenegar') {
+          return new KavenegarSmsProvider(config);
         }
         throw new Error(
           `OTP_PROVIDER="${provider}" has no implementation yet. ` +

@@ -29,6 +29,12 @@ internal data class CallSignalIceCandidateWire(
 @JsonClass(generateAdapter = true)
 internal data class CallSignalHangupWire(val type: String, val callId: String)
 
+@JsonClass(generateAdapter = true)
+internal data class CallChatWire(val type: String, val callId: String, val text: String)
+
+@JsonClass(generateAdapter = true)
+internal data class CallReactionWire(val type: String, val callId: String, val emoji: String)
+
 /**
  * Parses inbound WS frames in two passes: first read only the `type`
  * discriminator, then parse the full frame with the adapter for the
@@ -58,6 +64,52 @@ class RealtimeEventParser @Inject constructor(private val moshi: Moshi) {
                 runCatching { moshi.adapter<ServerToClientEvent.ReactionUpdated>().fromJson(json) }.getOrNull()
             "message.read" ->
                 runCatching { moshi.adapter<ServerToClientEvent.MessageRead>().fromJson(json) }.getOrNull()
+            "message.delivered" ->
+                runCatching { moshi.adapter<ServerToClientEvent.MessageDelivered>().fromJson(json) }.getOrNull()
+            "us.updated" ->
+                runCatching { moshi.adapter<ServerToClientEvent.UsUpdated>().fromJson(json) }.getOrNull()
+            "poll.updated" ->
+                runCatching { moshi.adapter<ServerToClientEvent.PollUpdated>().fromJson(json) }.getOrNull()
+            "conversation.disappearing_changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.DisappearingChanged>().fromJson(json) }.getOrNull()
+            "pin.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.PinChanged>().fromJson(json) }.getOrNull()
+            "question.answered" ->
+                runCatching { moshi.adapter<ServerToClientEvent.QuestionAnswered>().fromJson(json) }.getOrNull()
+            "wishlist.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.WishlistChanged>().fromJson(json) }.getOrNull()
+            "mood.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.MoodChanged>().fromJson(json) }.getOrNull()
+            "album.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.AlbumChanged>().fromJson(json) }.getOrNull()
+            "quiz.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.QuizChanged>().fromJson(json) }.getOrNull()
+            "vault.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.VaultChanged>().fromJson(json) }.getOrNull()
+            "story.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.StoryChanged>().fromJson(json) }.getOrNull()
+            "canvas.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.CanvasChanged>().fromJson(json) }.getOrNull()
+            "counter.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.CounterChanged>().fromJson(json) }.getOrNull()
+            "memory.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.MemoryChanged>().fromJson(json) }.getOrNull()
+            "affection" ->
+                runCatching { moshi.adapter<ServerToClientEvent.AffectionReceived>().fromJson(json) }.getOrNull()
+            "letter.received" ->
+                runCatching { moshi.adapter<ServerToClientEvent.LetterReceived>().fromJson(json) }.getOrNull()
+            "letter.opened" ->
+                runCatching { moshi.adapter<ServerToClientEvent.LetterOpened>().fromJson(json) }.getOrNull()
+            "miss_you" ->
+                runCatching { moshi.adapter<ServerToClientEvent.MissYou>().fromJson(json) }.getOrNull()
+            "heartbeat" ->
+                runCatching { moshi.adapter<ServerToClientEvent.Heartbeat>().fromJson(json) }.getOrNull()
+            "together" ->
+                runCatching { moshi.adapter<ServerToClientEvent.Together>().fromJson(json) }.getOrNull()
+            "screen_effect" ->
+                runCatching { moshi.adapter<ServerToClientEvent.ScreenEffect>().fromJson(json) }.getOrNull()
+            "presence.changed" ->
+                runCatching { moshi.adapter<ServerToClientEvent.PresenceChanged>().fromJson(json) }.getOrNull()
             "typing.started" ->
                 runCatching { moshi.adapter<ServerToClientEvent.TypingStarted>().fromJson(json) }.getOrNull()
             "typing.stopped" ->
@@ -88,6 +140,10 @@ class RealtimeEventParser @Inject constructor(private val moshi: Moshi) {
                 runCatching { moshi.adapter<ServerToClientEvent.CallIceCandidate>().fromJson(json) }.getOrNull()
             "call.hangup" ->
                 runCatching { moshi.adapter<ServerToClientEvent.CallHangup>().fromJson(json) }.getOrNull()
+            "call.chat" ->
+                runCatching { moshi.adapter<ServerToClientEvent.CallChat>().fromJson(json) }.getOrNull()
+            "call.reaction" ->
+                runCatching { moshi.adapter<ServerToClientEvent.CallReaction>().fromJson(json) }.getOrNull()
             else -> null
         }
     }
@@ -117,5 +173,9 @@ class RealtimeEventParser @Inject constructor(private val moshi: Moshi) {
             )
         is ClientToServerEvent.CallHangup ->
             moshi.adapter<CallSignalHangupWire>().toJson(CallSignalHangupWire(event.type, event.callId))
+        is ClientToServerEvent.CallChat ->
+            moshi.adapter<CallChatWire>().toJson(CallChatWire(event.type, event.callId, event.text))
+        is ClientToServerEvent.CallReaction ->
+            moshi.adapter<CallReactionWire>().toJson(CallReactionWire(event.type, event.callId, event.emoji))
     }
 }

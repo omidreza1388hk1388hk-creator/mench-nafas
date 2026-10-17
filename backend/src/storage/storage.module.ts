@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LocalDiskStorageProvider } from './local-disk-storage.provider';
+import { S3StorageProvider } from './s3-storage.provider';
 import { StorageProvider } from './storage-provider.interface';
 
 export const STORAGE_PROVIDER = 'STORAGE_PROVIDER';
@@ -9,24 +10,27 @@ export const STORAGE_PROVIDER = 'STORAGE_PROVIDER';
 @Module({
   providers: [
     LocalDiskStorageProvider,
+    S3StorageProvider,
     {
-      // Swap point for a real S3-compatible provider: implement
-      // StorageProvider against S3_ENDPOINT/S3_ACCESS_KEY/S3_SECRET_KEY/
-      // S3_BUCKET (already validated in env.validation.ts, currently
-      // unused by any code — reserved), register it here behind
-      // STORAGE_PROVIDER=s3. Nothing outside this factory needs to change.
-      // Same pattern as modules/auth/auth.module.ts's SMS_PROVIDER.
+      // STORAGE_PROVIDER=s3 (required by env.validation.ts whenever
+      // NODE_ENV=production) now resolves to a real S3-compatible
+      // provider — see s3-storage.provider.ts. Same pattern as
+      // modules/auth/auth.module.ts's SMS_PROVIDER.
       provide: STORAGE_PROVIDER,
-      inject: [ConfigService, LocalDiskStorageProvider],
-      useFactory: (config: ConfigService, local: LocalDiskStorageProvider): StorageProvider => {
+      inject: [ConfigService, LocalDiskStorageProvider, S3StorageProvider],
+      useFactory: (
+        config: ConfigService,
+        local: LocalDiskStorageProvider,
+        s3: S3StorageProvider,
+      ): StorageProvider => {
         const provider = config.get<string>('STORAGE_PROVIDER');
         if (provider === 'local') {
           return local;
         }
-        throw new Error(
-          `STORAGE_PROVIDER="${provider}" has no implementation yet. ` +
-            `A real StorageProvider (e.g. S3-compatible) must be added before this can be used.`,
-        );
+        if (provider === 's3') {
+          return s3;
+        }
+        throw new Error(`STORAGE_PROVIDER="${provider}" has no implementation.`);
       },
     },
   ],

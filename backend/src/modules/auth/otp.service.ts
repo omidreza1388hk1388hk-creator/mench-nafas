@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
@@ -28,7 +28,8 @@ export class OtpService {
 
     const stillCoolingDown = await this.redis.get(cooldownKey);
     if (stillCoolingDown) {
-      throw new BadRequestException('Please wait before requesting another code');
+      // 429 (not 400) so clients can tell "wait a moment" apart from "this phone number is invalid".
+      throw new HttpException('Please wait before requesting another code', HttpStatus.TOO_MANY_REQUESTS);
     }
 
     const length = this.config.get<number>('OTP_LENGTH') as number;

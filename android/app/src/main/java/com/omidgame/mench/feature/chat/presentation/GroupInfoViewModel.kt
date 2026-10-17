@@ -72,11 +72,19 @@ class GroupInfoViewModel @Inject constructor(
                 is ChatResult.Success -> {
                     val members = result.value
                     val isOwner = members.any { it.userId == selfId && it.isOwner }
+                    val info = (chatRepository.getGroupInfo(conversationId) as? ChatResult.Success)?.value
+                    val invites = if (info?.myRole?.isAdmin == true) {
+                        (chatRepository.listInvites(conversationId) as? ChatResult.Success)?.value.orEmpty()
+                    } else {
+                        emptyList()
+                    }
                     _uiState.value = GroupInfoUiState.Content(
                         title = conversation?.title ?: "",
                         members = members,
                         selfUserId = selfId,
                         isOwner = isOwner,
+                        info = info,
+                        invites = invites,
                     )
                 }
                 is ChatResult.Failure -> _uiState.value = GroupInfoUiState.Error(messageFor(result.reason))
@@ -117,6 +125,70 @@ class GroupInfoViewModel @Inject constructor(
                     }
                 }
                 is ChatResult.Failure -> _uiState.value = current.copy(actionError = messageFor(result.reason))
+            }
+        }
+    }
+
+    // ---- Phase 2A: governance actions ----
+    private fun failWith(current: GroupInfoUiState.Content, reason: ChatFailureReason) {
+        _uiState.value = current.copy(actionError = messageFor(reason))
+    }
+
+    fun onSettingsChanged(settings: com.omidgame.mench.feature.chat.domain.GroupSettings) {
+        val current = _uiState.value as? GroupInfoUiState.Content ?: return
+        // Optimistic: the switch moves at once; the server answer (or a failure message) follows.
+        current.info?.let { _uiState.value = current.copy(info = it.copy(settings = settings), actionError = null) }
+        viewModelScope.launch {
+            when (val result = chatRepository.updateGroupSettings(conversationId, settings)) {
+                is ChatResult.Success -> (_uiState.value as? GroupInfoUiState.Content)?.let { _uiState.value = it.copy(info = result.value) }
+                is ChatResult.Failure -> {
+                    load()
+                    (_uiState.value as? GroupInfoUiState.Content)?.let { failWith(it, result.reason) }
+                }
+            }
+        }
+    }
+
+    fun onToggleAdmin(member: com.omidgame.mench.feature.chat.domain.ConversationMember) {
+        val current = _uiState.value as? GroupInfoUiState.Content ?: return
+        val myRole = current.info?.myRole ?: return
+        val target = com.omidgame.mench.feature.chat.domain.GroupRules.roleToggleTarget(
+            myRole, com.omidgame.mench.feature.chat.domain.GroupRole.parse(member.role),
+        ) ?: return
+        viewModelScope.launch {
+            when (val result = chatRepository.changeMemberRole(conversationId, member.userId, target)) {
+                is ChatResult.Success -> load()
+                is ChatResult.Failure -> failWith(current, result.reason)
+            }
+        }
+    }
+
+    fun onTransferOwner(member: com.omidgame.mench.feature.chat.domain.ConversationMember) {
+        val current = _uiState.value as? GroupInfoUiState.Content ?: return
+        viewModelScope.launch {
+            when (val result = chatRepository.transferOwnership(conversationId, member.userId)) {
+                is ChatResult.Success -> load()
+                is ChatResult.Failure -> failWith(current, result.reason)
+            }
+        }
+    }
+
+    fun onCreateInvite(expiresInHours: Int?, maxUses: Int?) {
+        val current = _uiState.value as? GroupInfoUiState.Content ?: return
+        viewModelScope.launch {
+            when (val result = chatRepository.createInvite(conversationId, expiresInHours, maxUses)) {
+                is ChatResult.Success -> _uiState.value = current.copy(invites = listOf(result.value) + current.invites, actionError = null)
+                is ChatResult.Failure -> failWith(current, result.reason)
+            }
+        }
+    }
+
+    fun onRevokeInvite(invite: com.omidgame.mench.feature.chat.domain.GroupInvite) {
+        val current = _uiState.value as? GroupInfoUiState.Content ?: return
+        viewModelScope.launch {
+            when (val result = chatRepository.revokeInvite(conversationId, invite.id)) {
+                is ChatResult.Success -> _uiState.value = current.copy(invites = current.invites.filter { it.id != invite.id })
+                is ChatResult.Failure -> failWith(current, result.reason)
             }
         }
     }

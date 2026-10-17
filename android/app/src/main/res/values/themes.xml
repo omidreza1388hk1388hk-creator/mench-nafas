@@ -1,12 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Mench" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <!-- Shown for the brief window before Compose takes over MainActivity.
-         Replaced by the full animated MENCH startup sequence in Phase 6
-         (spec section 58); for now it's a static branded background so
-         there is never a blank white flash on launch. -->
-    <style name="Theme.Mench.Splash" parent="Theme.Mench">
-        <item name="android:windowBackground">@color/mench_ink_900</item>
-        <item name="android:statusBarColor">@color/mench_ink_900</item>
+    <!-- Phase 1A: system splash via androidx.core:core-splashscreen. Android 12+ shows the
+         platform splash (solid color + animated icon); older versions get the library's
+         compat splash. MainActivity calls installSplashScreen() before super.onCreate, which
+         swaps in postSplashScreenTheme, then AnimatedSplash takes over inside Compose. -->
+    <style name="Theme.Mench.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/mench_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_heart</item>
+        <item name="postSplashScreenTheme">@style/Theme.Mench</item>
+        <item name="android:statusBarColor">@color/mench_splash_background</item>
     </style>
 </resources>

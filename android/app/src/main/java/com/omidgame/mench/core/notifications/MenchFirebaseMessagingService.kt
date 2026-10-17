@@ -32,6 +32,7 @@ import javax.inject.Inject
 class MenchFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var pushTokenRegistrar: PushTokenRegistrar
+    @Inject lateinit var notificationPolicy: NotificationPolicy
 
     // FirebaseMessagingService callbacks are not suspend functions and
     // must not block their calling thread — a dedicated scope, torn down
@@ -55,6 +56,10 @@ class MenchFirebaseMessagingService : FirebaseMessagingService() {
         val title = data["title"] ?: getString(R.string.app_name)
         val body = data["body"]?.takeIf { it.isNotEmpty() }
         val conversationId = data["conversationId"]
+        // Phase 1C: timed mutes apply to push-delivered messages too.
+        if (conversationId != null && notificationPolicy.isTimedMuted(conversationId)) return
+        // Settings Phase 1D: master and per-type switches (the backend sends data.type; unknown types count as messages).
+        if (!notificationPolicy.shouldPost(com.omidgame.mench.feature.settings.domain.NotificationType.fromPushType(data["type"]))) return
 
         showNotification(title = title, body = body, conversationId = conversationId, collapseKey = message.collapseKey)
     }
@@ -92,6 +97,7 @@ class MenchFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSilent(conversationId != null && notificationPolicy.shouldSilence(conversationId))
             .apply { if (conversationId != null) setGroup(conversationId) }
             .build()
 

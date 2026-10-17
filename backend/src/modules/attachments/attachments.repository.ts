@@ -15,6 +15,8 @@ export interface AttachmentRow {
   width_px: number | null;
   height_px: number | null;
   duration_ms: number | null;
+  blur_hash?: string | null;
+  waveform: string | null;
   created_at: Date;
 }
 
@@ -30,6 +32,8 @@ export interface CreateAttachmentInput {
   widthPx: number | null;
   heightPx: number | null;
   durationMs: number | null;
+  blurHash?: string | null;
+  waveform?: string | null;
 }
 
 @Injectable()
@@ -40,8 +44,8 @@ export class AttachmentsRepository {
     const { rows } = await this.pool.query<AttachmentRow>(
       `INSERT INTO attachments
         (uploader_id, conversation_id, kind, storage_key, thumbnail_storage_key,
-         original_filename, mime_type, size_bytes, width_px, height_px, duration_ms)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         original_filename, mime_type, size_bytes, width_px, height_px, duration_ms, blur_hash, waveform)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         input.uploaderId,
@@ -55,9 +59,20 @@ export class AttachmentsRepository {
         input.widthPx,
         input.heightPx,
         input.durationMs,
+        input.blurHash ?? null,
+        input.waveform ?? null,
       ],
     );
     return rows[0];
+  }
+
+  /** Phase 4C view-once: true for exactly one caller, ever (atomic, so two parallel requests cannot both win). */
+  async consumeViewOnce(id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      'UPDATE attachments SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL',
+      [id],
+    );
+    return (rowCount ?? 0) > 0;
   }
 
   async findById(id: string): Promise<AttachmentRow | null> {

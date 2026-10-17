@@ -16,6 +16,7 @@ export interface MessageRow {
   edited_at: Date | null;
   deleted_at: Date | null;
   forwarded_from_message_id: string | null;
+  reply_to_message_id: string | null;
   // Populated only by queries that JOIN attachments (both methods below
   // do) — null/undefined whenever attachment_id itself is null.
   attachment_kind: string | null;
@@ -25,7 +26,9 @@ export interface MessageRow {
   attachment_width_px: number | null;
   attachment_height_px: number | null;
   attachment_duration_ms: number | null;
+  attachment_waveform: string | null;
   attachment_thumbnail_storage_key: string | null;
+  attachment_blur_hash?: string | null;
 }
 
 const MESSAGE_SELECT_WITH_ATTACHMENT = `
@@ -38,10 +41,19 @@ const MESSAGE_SELECT_WITH_ATTACHMENT = `
     a.width_px AS attachment_width_px,
     a.height_px AS attachment_height_px,
     a.duration_ms AS attachment_duration_ms,
-    a.thumbnail_storage_key AS attachment_thumbnail_storage_key
+    a.waveform AS attachment_waveform,
+    a.thumbnail_storage_key AS attachment_thumbnail_storage_key,
+    a.blur_hash AS attachment_blur_hash
   FROM messages m
   LEFT JOIN attachments a ON a.id = m.attachment_id
 `;
+
+export interface SeenByRow {
+  user_id: string;
+  display_name: string | null;
+  phone_e164: string;
+  read_at: Date;
+}
 
 export interface ReadReceiptRow {
   conversation_id: string;
@@ -58,6 +70,7 @@ export interface CreateMessageInput {
   body: string | null;
   attachmentId: string | null;
   forwardedFromMessageId?: string | null;
+  replyToMessageId?: string | null;
 }
 
 @Injectable()
@@ -78,8 +91,8 @@ export class MessagesRepository {
       await client.query('BEGIN');
 
       const { rows } = await client.query<{ id: string; created_at: Date }>(
-        `INSERT INTO messages (conversation_id, sender_id, client_msg_id, kind, body, attachment_id, forwarded_from_message_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO messages (conversation_id, sender_id, client_msg_id, kind, body, attachment_id, forwarded_from_message_id, reply_to_message_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (conversation_id, sender_id, client_msg_id)
          DO UPDATE SET conversation_id = EXCLUDED.conversation_id
          RETURNING id, created_at`,
@@ -91,6 +104,7 @@ export class MessagesRepository {
           input.body,
           input.attachmentId,
           input.forwardedFromMessageId ?? null,
+          input.replyToMessageId ?? null,
         ],
       );
       const inserted = rows[0];
@@ -142,6 +156,20 @@ export class MessagesRepository {
     return rows;
   }
 
+  /** Members whose read marker has reached `sequence`, i.e. who have seen that message (the sender is excluded). */
+  async listSeenBy(conversationId: string, sequence: number, excludeUserId: string): Promise<SeenByRow[]> {
+    const { rows } = await this.pool.query<SeenByRow>(
+      `SELECT u.id AS user_id, u.display_name, u.phone_e164, rr.updated_at AS read_at
+         FROM read_receipts rr
+         JOIN users u ON u.id = rr.user_id
+        WHERE rr.conversation_id = $1 AND rr.last_read_sequence >= $2 AND rr.user_id <> $3
+        ORDER BY rr.updated_at ASC
+        LIMIT 200`,
+      [conversationId, sequence, excludeUserId],
+    );
+    return rows;
+  }
+
   async findById(messageId: string): Promise<MessageRow | null> {
     const { rows } = await this.pool.query<MessageRow>(
       `${MESSAGE_SELECT_WITH_ATTACHMENT} WHERE m.id = $1`,
@@ -159,14 +187,35 @@ export class MessagesRepository {
    * race.
    */
   async editBody(messageId: string, senderId: string, body: string): Promise<MessageRow | null> {
+    // The previous body is captured in the same statement (CTE reads the pre-update row), so the
+    // history row and the edit can never disagree. Live-location bodies ("loc:v1:...") are edited
+    // every 30 s and would flood the history, so they are not recorded.
     const { rows } = await this.pool.query<{ id: string }>(
-      `UPDATE messages SET body = $3, edited_at = now()
-       WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL AND kind = 'text'
+      `WITH prev AS (
+         SELECT id, body FROM messages
+          WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL AND kind = 'text'
+       ),
+       hist AS (
+         INSERT INTO message_edits (message_id, old_body)
+         SELECT id, body FROM prev
+          WHERE body IS NOT NULL AND body NOT LIKE 'loc:v1:%' AND body IS DISTINCT FROM $3
+       )
+       UPDATE messages SET body = $3, edited_at = now()
+        WHERE id IN (SELECT id FROM prev)
        RETURNING id`,
       [messageId, senderId, body],
     );
     if (rows.length === 0) return null;
     return this.findById(messageId);
+  }
+
+  /** Earlier versions of a message, oldest first (the current body is not included). */
+  async listEdits(messageId: string): Promise<{ old_body: string | null; edited_at: Date }[]> {
+    const { rows } = await this.pool.query<{ old_body: string | null; edited_at: Date }>(
+      `SELECT old_body, edited_at FROM message_edits WHERE message_id = $1 ORDER BY id ASC LIMIT 50`,
+      [messageId],
+    );
+    return rows;
   }
 
   async softDelete(messageId: string, senderId: string): Promise<MessageRow | null> {

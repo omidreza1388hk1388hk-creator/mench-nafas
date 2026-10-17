@@ -52,6 +52,16 @@ export class DevicesRepository {
     );
   }
 
+  /** Settings Phase 1: "log out of all other devices". Same effect as revoke(), for every active device except [keepDeviceId]. */
+  async revokeAllExcept(userId: string, keepDeviceId: string): Promise<number> {
+    const { rowCount } = await this.pool.query(
+      `UPDATE devices SET revoked_at = now(), push_token = NULL, push_provider = NULL
+       WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL`,
+      [userId, keepDeviceId],
+    );
+    return rowCount ?? 0;
+  }
+
   /** Ownership-checked lookup — used before trusting a push-token update to belong to the requesting user (404, not 403, matching this codebase's existing information-leak-avoidance convention — see ConversationsService.assertMember). */
   async findByIdForUser(deviceId: string, userId: string): Promise<DeviceRow | null> {
     const { rows } = await this.pool.query<DeviceRow>(

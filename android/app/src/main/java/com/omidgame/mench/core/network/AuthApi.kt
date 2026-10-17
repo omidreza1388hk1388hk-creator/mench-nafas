@@ -20,6 +20,19 @@ data class AuthTokensResponse(
     val deviceId: String,
 )
 
+/** otp/verify answers with tokens, or (account has two-step verification) with twoStepRequired + a ticket. */
+data class VerifyOtpResponse(
+    val accessToken: String? = null,
+    val refreshToken: String? = null,
+    val userId: String? = null,
+    val deviceId: String? = null,
+    val twoStepRequired: Boolean? = null,
+    val ticket: String? = null,
+    val hint: String? = null,
+)
+
+data class VerifyTwoStepBody(val ticket: String, val password: String)
+
 data class RefreshTokenBody(val refreshToken: String)
 data class RefreshTokenResponse(val accessToken: String, val refreshToken: String)
 
@@ -30,7 +43,10 @@ interface AuthApi {
     suspend fun requestOtp(@Body body: RequestOtpBody): RequestOtpResponse
 
     @POST("auth/otp/verify")
-    suspend fun verifyOtp(@Body body: VerifyOtpBody): AuthTokensResponse
+    suspend fun verifyOtp(@Body body: VerifyOtpBody): VerifyOtpResponse
+
+    @POST("auth/two-step/verify")
+    suspend fun verifyTwoStep(@Body body: VerifyTwoStepBody): AuthTokensResponse
 
     @POST("auth/token/refresh")
     suspend fun refreshToken(@Body body: RefreshTokenBody): RefreshTokenResponse

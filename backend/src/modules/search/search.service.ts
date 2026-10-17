@@ -31,6 +31,10 @@ export class SearchService {
     const effectiveScope = scope ?? 'all';
     const effectiveLimit = limit ?? DEFAULT_LIMIT;
     const trimmedQuery = (query ?? '').trim();
+    // The repository uses ILIKE '%' || $2 || '%': escape the wildcard characters (and the escape
+    // character itself, Postgres' default) so typing "100%" or "_" searches for those characters
+    // instead of matching every row.
+    const likeQuery = trimmedQuery.replace(/[\\%_]/g, '\\$&');
     const effectiveConversationId = conversationId ?? null;
 
     const wantsMessages = effectiveScope === 'all' || effectiveScope === 'messages';
@@ -43,13 +47,13 @@ export class SearchService {
     // real product need, so those two are simply skipped when empty.
     const [messageRows, conversationRows, fileRows] = await Promise.all([
       wantsMessages && trimmedQuery.length > 0
-        ? this.searchRepository.searchMessages(userId, trimmedQuery, effectiveLimit, effectiveConversationId)
+        ? this.searchRepository.searchMessages(userId, likeQuery, effectiveLimit, effectiveConversationId)
         : Promise.resolve([]),
       wantsConversations && trimmedQuery.length > 0
-        ? this.searchRepository.searchConversations(userId, trimmedQuery, effectiveLimit)
+        ? this.searchRepository.searchConversations(userId, likeQuery, effectiveLimit)
         : Promise.resolve([]),
       wantsFiles
-        ? this.searchRepository.searchFiles(userId, trimmedQuery, effectiveLimit, effectiveConversationId)
+        ? this.searchRepository.searchFiles(userId, likeQuery, effectiveLimit, effectiveConversationId)
         : Promise.resolve([]),
     ]);
 

@@ -16,6 +16,8 @@ interface AuthRepository {
         deviceName: String,
     ): AuthResult<Unit>
 
+    suspend fun verifyTwoStep(challenge: TwoStepChallenge, password: String): AuthResult<Unit>
+
     suspend fun isSignedIn(): Boolean
 
     suspend fun logout()

@@ -10,6 +10,30 @@ import { Pool } from 'pg';
  * SQL. This keeps schema evolution auditable, which matters for a private
  * messenger. Run with: `npm run migrate`.
  */
+/**
+ * Merged-project renumbering: these files carried the (colliding) names on the right while the four
+ * feature branches were separate. A database that already applied one under its old name must not
+ * run it again under the new name.
+ */
+const FORMER_NAMES: Record<string, string> = {
+  '024_phase2a_voice_waveform.sql': '021_phase2a_voice_waveform.sql',
+  '025_phase2a_polls.sql': '022_phase2a_polls.sql',
+  '026_phase2a_scheduled_messages.sql': '023_phase2a_scheduled_messages.sql',
+  '027_phase2a_group_governance.sql': '024_phase2a_group_governance.sql',
+  '028_phase2a_saved_messages.sql': '025_phase2a_saved_messages.sql',
+  '029_phase2_edit_history.sql': '026_phase2_edit_history.sql',
+  '030_phase3a_counters.sql': '021_phase3a_counters.sql',
+  '031_phase3a_canvas.sql': '022_phase3a_canvas.sql',
+  '032_phase3b_stories.sql': '023_phase3b_stories.sql',
+  '033_phase3_vault.sql': '024_phase3_vault.sql',
+  '034_phase3a_quizzes.sql': '025_phase3a_quizzes.sql',
+  '035_phase3_counter_theme.sql': '026_phase3_counter_theme.sql',
+  '036_phase3_letter_unlock_reminder.sql': '027_phase3_letter_unlock_reminder.sql',
+  '037_phase3_album_photos.sql': '028_phase3_album_photos.sql',
+  '038_phase4_privacy_disappearing.sql': '021_phase13_privacy_disappearing.sql',
+  '039_phase4_two_step.sql': '022_phase13_two_step.sql',
+};
+
 async function run(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -38,7 +62,8 @@ async function run(): Promise<void> {
     const appliedSet = new Set(applied.map((r) => r.filename));
 
     for (const file of files) {
-      if (appliedSet.has(file)) {
+      const former = FORMER_NAMES[file];
+      if (appliedSet.has(file) || (former !== undefined && appliedSet.has(former))) {
         // eslint-disable-next-line no-console
         console.log(`skip (already applied): ${file}`);
         continue;

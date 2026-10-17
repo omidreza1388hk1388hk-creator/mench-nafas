@@ -18,6 +18,17 @@ export interface ConversationDto {
   otherUserId: string | null;
   otherUserPhoneE164: string | null;
   otherUserDisplayName: string | null;
+  /** The other person's profile-photo version (ms timestamp, for ?v= cache busting); null = no photo. */
+  otherUserAvatarVersion: number | null;
+  /** Per-requesting-user settings. Only meaningful in the caller's own list/create responses; broadcast copies (sent to other members) always carry false. */
+  isMuted: boolean;
+  isPinned: boolean;
+  isArchived: boolean;
+  /** Phase 9 — shared 'us' dates (YYYY-MM-DD), direct conversations only. */
+  togetherSince: string | null;
+  /** Phase 11 — the pinned message's server id (the client looks the text up locally), or null. */
+  pinnedMessageId: string | null;
+  nextMeetDate: string | null;
 }
 
 export function toConversationDto(row: ConversationRow, otherMember: OtherMemberRow | null): ConversationDto {
@@ -31,6 +42,13 @@ export function toConversationDto(row: ConversationRow, otherMember: OtherMember
     otherUserId: otherMember?.id ?? null,
     otherUserPhoneE164: otherMember?.phone_e164 ?? null,
     otherUserDisplayName: otherMember?.display_name ?? null,
+    otherUserAvatarVersion: otherMember?.avatar_version ? Number(otherMember.avatar_version) : null,
+    isMuted: row.is_muted ?? false,
+    isPinned: row.is_pinned ?? false,
+    isArchived: row.is_archived ?? false,
+    togetherSince: row.together_since ?? null,
+    pinnedMessageId: row.pinned_message_id ?? null,
+    nextMeetDate: row.next_meet_date ?? null,
   };
 }
 
@@ -40,6 +58,8 @@ export interface ConversationMemberDto {
   phoneE164: string;
   displayName: string | null;
   role: string;
+  /** Profile-photo version (ms timestamp, cache-buster); null = no photo. */
+  avatarVersion: number | null;
 }
 
 export function toConversationMemberDto(row: MemberRow): ConversationMemberDto {
@@ -48,5 +68,6 @@ export function toConversationMemberDto(row: MemberRow): ConversationMemberDto {
     phoneE164: row.phone_e164,
     displayName: row.display_name,
     role: row.role,
+    avatarVersion: row.avatar_version ? Number(row.avatar_version) : null,
   };
 }

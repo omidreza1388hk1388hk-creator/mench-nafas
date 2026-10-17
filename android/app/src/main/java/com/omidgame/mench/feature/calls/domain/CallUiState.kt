@@ -23,6 +23,12 @@ sealed interface CallUiState {
         val isSpeakerOn: Boolean,
         val isFrontCamera: Boolean,
         val isLocalVideoEnabled: Boolean,
+        /** Phase 2B */
+        val route: AudioRoute = AudioRoute.EARPIECE,
+        val availableRoutes: List<AudioRoute> = listOf(AudioRoute.EARPIECE, AudioRoute.SPEAKER),
+        val quality: CallQualityTier = CallQualityTier.UNKNOWN,
+        /** True while the connection is down and being restored (shown as a "Reconnecting…" banner). */
+        val reconnecting: Boolean = false,
     ) : CallUiState
 
     /** Transient — CallSessionManager shows this for a couple of seconds so the ending reason is visible, then resets to Idle on its own. */

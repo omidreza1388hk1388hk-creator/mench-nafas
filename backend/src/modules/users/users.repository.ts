@@ -10,8 +10,12 @@ export interface UserRow {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  /** ms timestamp of the current profile photo (BIGINT arrives from pg as a string); null = none. */
+  avatar_version: string | null;
   bio: string | null;
   notification_privacy_mode: NotificationPrivacyMode;
+  /** Phase 1 completion: false hides this user from contact-sync lookups (optional so older fixtures still type-check). */
+  discoverable_by_phone?: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -46,6 +50,32 @@ export class UsersRepository {
     return rows;
   }
 
+  /** Contact-sync's counterpart to findManyByIds — same batching reasoning, keyed by phone number instead of id since that's what a device address book has, not user ids. */
+  async findManyByPhones(phones: string[]): Promise<UserRow[]> {
+    if (phones.length === 0) return [];
+    const { rows } = await this.pool.query<UserRow>(
+      // Users who turned off "let contacts find me" are never revealed by a contact-sync batch.
+      'SELECT * FROM users WHERE phone_e164 = ANY($1::text[]) AND discoverable_by_phone = true AND deleted_at IS NULL',
+      [phones],
+    );
+    return rows;
+  }
+
+  async getContactPrivacy(userId: string): Promise<boolean> {
+    const { rows } = await this.pool.query<{ discoverable_by_phone: boolean }>(
+      'SELECT discoverable_by_phone FROM users WHERE id = $1',
+      [userId],
+    );
+    return rows[0]?.discoverable_by_phone ?? true;
+  }
+
+  async setContactPrivacy(userId: string, discoverable: boolean): Promise<void> {
+    await this.pool.query(
+      'UPDATE users SET discoverable_by_phone = $2, updated_at = now() WHERE id = $1',
+      [userId, discoverable],
+    );
+  }
+
   /** Creates the user if the phone number is new, otherwise returns the existing row (atomic, race-safe). */
   async findOrCreateByPhone(phoneE164: string): Promise<UserRow> {
     const { rows } = await this.pool.query<UserRow>(
@@ -63,6 +93,31 @@ export class UsersRepository {
    * username with NULL. updated_at is bumped unconditionally alongside
    * whatever did change.
    */
+  async setAvatarVersion(userId: string, version: number): Promise<void> {
+    await this.pool.query('UPDATE users SET avatar_version = $2, updated_at = now() WHERE id = $1', [userId, version]);
+  }
+
+  /** True when both users are members of at least one common conversation (or are the same user). */
+  async setE2eeKey(userId: string, publicKey: string): Promise<void> {
+    await this.pool.query('UPDATE users SET e2ee_public_key = $2, updated_at = now() WHERE id = $1', [userId, publicKey]);
+  }
+
+  async getE2eeKey(userId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ e2ee_public_key: string | null }>('SELECT e2ee_public_key FROM users WHERE id = $1', [userId]);
+    return rows[0]?.e2ee_public_key ?? null;
+  }
+
+  async sharesConversation(userA: string, userB: string): Promise<boolean> {
+    if (userA === userB) return true;
+    const { rows } = await this.pool.query(
+      `SELECT 1 FROM conversation_members a
+         JOIN conversation_members b ON a.conversation_id = b.conversation_id
+        WHERE a.user_id = $1 AND b.user_id = $2 LIMIT 1`,
+      [userA, userB],
+    );
+    return rows.length > 0;
+  }
+
   async updateProfile(
     userId: string,
     patch: { displayName?: string; username?: string; bio?: string },

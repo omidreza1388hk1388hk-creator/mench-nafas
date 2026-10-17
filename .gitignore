@@ -1,0 +1,23 @@
+# Build output
+android/**/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+*.iml
+.idea/
+.DS_Store
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/coverage/
+
+# Secrets: never commit these
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!.env.example

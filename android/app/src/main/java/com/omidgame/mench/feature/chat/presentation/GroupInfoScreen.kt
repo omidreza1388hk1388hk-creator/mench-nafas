@@ -34,6 +34,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.omidgame.mench.R
 import com.omidgame.mench.feature.chat.domain.ConversationMember
+import com.omidgame.mench.feature.chat.domain.GroupRole
+import com.omidgame.mench.feature.chat.domain.GroupRules
+import com.omidgame.mench.feature.chat.domain.GroupSettings
 
 @Composable
 fun GroupInfoScreen(
@@ -41,6 +44,11 @@ fun GroupInfoScreen(
     onRename: (String) -> Unit,
     onAddMember: (String) -> Unit,
     onRemoveMember: (String) -> Unit,
+    onSettingsChanged: (com.omidgame.mench.feature.chat.domain.GroupSettings) -> Unit = {},
+    onToggleAdmin: (ConversationMember) -> Unit = {},
+    onTransferOwner: (ConversationMember) -> Unit = {},
+    onCreateInvite: (expiresInHours: Int?, maxUses: Int?) -> Unit = { _, _ -> },
+    onRevokeInvite: (com.omidgame.mench.feature.chat.domain.GroupInvite) -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -52,7 +60,7 @@ fun GroupInfoScreen(
                     modifier = Modifier.align(Alignment.Center).padding(24.dp),
                     color = MaterialTheme.colorScheme.error,
                 )
-            is GroupInfoUiState.Content -> GroupInfoContent(state, onRename, onAddMember, onRemoveMember)
+            is GroupInfoUiState.Content -> GroupInfoContent(state, onRename, onAddMember, onRemoveMember, onSettingsChanged, onToggleAdmin, onCreateInvite, onRevokeInvite, onTransferOwner)
         }
     }
 }
@@ -63,12 +71,19 @@ private fun GroupInfoContent(
     onRename: (String) -> Unit,
     onAddMember: (String) -> Unit,
     onRemoveMember: (String) -> Unit,
+    onSettingsChanged: (com.omidgame.mench.feature.chat.domain.GroupSettings) -> Unit,
+    onToggleAdmin: (ConversationMember) -> Unit,
+    onCreateInvite: (expiresInHours: Int?, maxUses: Int?) -> Unit,
+    onRevokeInvite: (com.omidgame.mench.feature.chat.domain.GroupInvite) -> Unit,
+    onTransferOwner: (ConversationMember) -> Unit = {},
 ) {
+    val myRole = state.info?.myRole ?: if (state.isOwner) GroupRole.OWNER else GroupRole.MEMBER
+    val settings = state.info?.settings ?: GroupSettings()
     var titleDraft by remember(state.title) { mutableStateOf(state.title) }
     var newMemberPhone by remember { mutableStateOf("+") }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (state.isOwner) {
+        if (GroupRules.canEditInfo(myRole, settings)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = titleDraft,
@@ -99,18 +114,38 @@ private fun GroupInfoContent(
 
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(state.members, key = { it.userId }) { member ->
+                val isSelf = member.userId == state.selfUserId
                 GroupMemberRow(
                     member = member,
-                    isSelf = member.userId == state.selfUserId,
-                    canRemove = member.userId == state.selfUserId || state.isOwner,
+                    isSelf = isSelf,
+                    canRemove = isSelf || GroupRules.canRemove(myRole, GroupRole.parse(member.role)),
                     onRemove = { onRemoveMember(member.userId) },
+                    toggleAdminLabel = GroupRules.roleToggleTarget(myRole, GroupRole.parse(member.role))?.let {
+                        if (it == GroupRole.ADMIN) R.string.group_make_admin else R.string.group_remove_admin
+                    },
+                    onToggleAdmin = { onToggleAdmin(member) },
+                    canTransfer = myRole == GroupRole.OWNER && !isSelf,
+                    onTransfer = { onTransferOwner(member) },
                 )
+            }
+            if (GroupRules.canManage(myRole)) {
+                item(key = "governance") {
+                    GovernanceSection(
+                        settings = settings,
+                        isOwner = myRole == GroupRole.OWNER,
+                        invites = state.invites,
+                        groupTitle = state.title,
+                        onSettingsChanged = onSettingsChanged,
+                        onCreateInvite = onCreateInvite,
+                        onRevokeInvite = onRevokeInvite,
+                    )
+                }
             }
         }
         HorizontalDivider()
 
         Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (GroupRules.canAddMembers(myRole, settings)) Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = newMemberPhone,
                 onValueChange = { newMemberPhone = it },
@@ -138,27 +173,55 @@ private fun GroupMemberRow(
     isSelf: Boolean,
     canRemove: Boolean,
     onRemove: () -> Unit,
+    toggleAdminLabel: Int? = null,
+    onToggleAdmin: () -> Unit = {},
+    canTransfer: Boolean = false,
+    onTransfer: () -> Unit = {},
 ) {
+    var confirmTransfer by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (confirmTransfer) {
+        com.omidgame.mench.core.ui.components.MenchDialog(
+            onDismissRequest = { confirmTransfer = false },
+            title = { Text(stringResource(R.string.group_transfer_title)) },
+            text = { Text(stringResource(R.string.group_transfer_body, member.displayName ?: member.phoneE164)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmTransfer = false; onTransfer() }) {
+                    Text(stringResource(R.string.group_transfer_confirm))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmTransfer = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
     ListItem(
         headlineContent = { Text(member.displayName ?: member.phoneE164) },
         supportingContent = {
             Text(
-                if (member.isOwner) {
-                    stringResource(R.string.chat_group_role_owner)
-                } else {
-                    stringResource(R.string.chat_group_role_member)
+                when {
+                    member.isOwner -> stringResource(R.string.chat_group_role_owner)
+                    member.isAdmin -> stringResource(R.string.group_role_admin)
+                    else -> stringResource(R.string.chat_group_role_member)
                 },
             )
         },
         trailingContent = {
-            if (canRemove) {
-                IconButton(onClick = onRemove) {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = stringResource(
-                            if (isSelf) R.string.chat_leave_group else R.string.chat_remove_member,
-                        ),
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (toggleAdminLabel != null) {
+                    androidx.compose.material3.TextButton(onClick = onToggleAdmin) { Text(stringResource(toggleAdminLabel)) }
+                }
+                if (canTransfer) {
+                    androidx.compose.material3.TextButton(onClick = { confirmTransfer = true }) { Text(stringResource(R.string.group_transfer_owner)) }
+                }
+                if (canRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(
+                                if (isSelf) R.string.chat_leave_group else R.string.chat_remove_member,
+                            ),
+                        )
+                    }
                 }
             }
         },

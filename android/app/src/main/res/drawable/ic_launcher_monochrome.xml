@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed icon: single-colour silhouette (bubble with the heart cut out). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M36,24 H72 A16,16 0 0 1 88,40 V56 A16,16 0 0 1 72,72 H52 L38,88 L40,72 H36 A16,16 0 0 1 20,56 V40 A16,16 0 0 1 36,24 Z M54,61 C54,61 35,50 35,39 C35,33.5 39.5,29.5 45,29.5 C49,29.5 52,31.5 54,35 C56,31.5 59,29.5 63,29.5 C68.5,29.5 73,33.5 73,39 C73,50 54,61 54,61 Z" />
+</vector>

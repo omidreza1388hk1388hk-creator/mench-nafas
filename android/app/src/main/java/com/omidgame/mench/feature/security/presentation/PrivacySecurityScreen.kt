@@ -1,5 +1,8 @@
 package com.omidgame.mench.feature.security.presentation
 
+import androidx.compose.foundation.background
+import com.omidgame.mench.core.ui.theme.MenchBrand
+import com.omidgame.mench.core.ui.theme.menchTopBarColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
+import com.omidgame.mench.core.ui.components.MenchDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +55,9 @@ fun PrivacySecurityScreen(
     onTimeoutSelected: (AppLockTimeoutOption) -> Unit,
     onLogoutAllDevices: () -> Unit,
     onLoggedOutAll: () -> Unit,
+    onManageDevicesClick: () -> Unit = {},
+    onPrivacyClick: () -> Unit = {},
+    onTwoStepClick: () -> Unit = {},
     onBackClick: () -> Unit,
 ) {
     // Re-reads app-lock state whenever this screen comes back into the
@@ -75,7 +81,7 @@ fun PrivacySecurityScreen(
     var showLogoutAllConfirm by remember { mutableStateOf(false) }
 
     if (showLogoutAllConfirm) {
-        AlertDialog(
+        MenchDialog(
             onDismissRequest = { showLogoutAllConfirm = false },
             title = { Text(stringResource(R.string.privacy_logout_all_confirm_title)) },
             text = { Text(stringResource(R.string.privacy_logout_all_confirm_body)) },
@@ -95,6 +101,8 @@ fun PrivacySecurityScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.background(MenchBrand.heroBrush()),
+                colors = menchTopBarColors(),
                 title = { Text(stringResource(R.string.settings_privacy_security)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -168,6 +176,27 @@ fun PrivacySecurityScreen(
                     text = stringResource(R.string.privacy_sessions_title),
                     style = MaterialTheme.typography.titleSmall,
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onPrivacyClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.privacy_settings_title))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onTwoStepClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.two_step_title))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onManageDevicesClick,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.devices_title))
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showLogoutAllConfirm = true },

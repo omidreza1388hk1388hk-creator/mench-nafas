@@ -1,6 +1,10 @@
 package com.omidgame.mench.feature.settings.presentation
 
+import androidx.compose.foundation.background
+import com.omidgame.mench.core.ui.theme.MenchBrand
+import com.omidgame.mench.core.ui.theme.menchTopBarColors
 import androidx.compose.foundation.layout.Arrangement
+import com.omidgame.mench.core.ui.components.UserAvatar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +39,7 @@ fun AccountSettingsScreen(
     onDisplayNameChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onBioChange: (String) -> Unit,
+    onAvatarPicked: (String) -> Unit = {},
     onSave: () -> Unit,
     onSaved: () -> Unit,
     onBackClick: () -> Unit,
@@ -46,6 +51,8 @@ fun AccountSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.background(MenchBrand.heroBrush()),
+                colors = menchTopBarColors(),
                 title = { Text(stringResource(R.string.settings_account)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -66,6 +73,30 @@ fun AccountSettingsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.Top,
         ) {
+            val pickPhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+            ) { uri -> if (uri != null) onAvatarPicked(uri.toString()) }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                UserAvatar(
+                    userId = state.userId.ifEmpty { null },
+                    version = state.avatarVersion,
+                    name = state.displayName.ifBlank { state.phoneE164 },
+                    size = 96.dp,
+                )
+                androidx.compose.material3.TextButton(
+                    onClick = { pickPhoto.launch("image/*") },
+                    enabled = !state.isUploadingAvatar,
+                ) {
+                    Text(
+                        stringResource(
+                            if (state.isUploadingAvatar) R.string.account_photo_uploading else R.string.account_change_photo,
+                        ),
+                    )
+                }
+            }
             Text(text = state.phoneE164, style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(

@@ -2,7 +2,11 @@ package com.omidgame.mench.core.webrtc
 
 import android.content.Context
 import android.media.AudioManager
+import com.omidgame.mench.feature.calls.domain.CallStatsParser
+import com.omidgame.mench.feature.calls.domain.CallStatsSample
 import com.omidgame.mench.feature.calls.domain.CallType
+import com.omidgame.mench.feature.calls.domain.RawStat
+import com.omidgame.mench.feature.calls.domain.StatsCounters
 import com.omidgame.mench.feature.calls.domain.IceServerConfig
 import com.omidgame.mench.feature.calls.domain.LocalIceCandidate
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -89,7 +93,15 @@ class WebRtcClient(
     private fun addLocalTracks(localRenderer: SurfaceViewRenderer?) {
         val pc = peerConnection ?: return
 
-        val audioConstraints = MediaConstraints()
+        // Phase 2B: echo cancellation, noise suppression, high-pass and gain control all on.
+        val audioConstraints = MediaConstraints().apply {
+            // Settings Phase 2: echo cancellation and noise suppression can be switched off in Call settings (default on).
+            val callSettings = CallSettingsStore.current
+            mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", callSettings.echoCancellation.toString()))
+            mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", callSettings.noiseSuppression.toString()))
+            mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+        }
         localAudioSource = peerConnectionFactory.createAudioSource(audioConstraints)
         localAudioTrack = peerConnectionFactory.createAudioTrack("audio0", localAudioSource)
         pc.addTrack(localAudioTrack)
@@ -115,20 +127,29 @@ class WebRtcClient(
         // Prefer front camera for the initial preview — matches every
         // other video-calling app's default and is what
         // spec section 28's "camera switching" then toggles away from.
-        deviceNames.firstOrNull { enumerator.isFrontFacing(it) }?.let { name ->
-            enumerator.createCapturer(name, null)?.let { return it }
-        }
-        deviceNames.firstOrNull { enumerator.isBackFacing(it) }?.let { name ->
-            enumerator.createCapturer(name, null)?.let { return it }
+        // Settings Phase 2: the user's default camera is tried first; the other one is the fallback.
+        val frontFirst = CallSettingsStore.current.frontCameraDefault
+        isFrontCamera = frontFirst
+        val order = if (frontFirst) listOf(true, false) else listOf(false, true)
+        for (front in order) {
+            deviceNames.firstOrNull { if (front) enumerator.isFrontFacing(it) else enumerator.isBackFacing(it) }?.let { name ->
+                enumerator.createCapturer(name, null)?.let { capturer ->
+                    isFrontCamera = front
+                    return capturer
+                }
+            }
         }
         return null
     }
 
-    suspend fun createOffer(): String = suspendCancellableCoroutine { cont ->
+    suspend fun createOffer(iceRestart: Boolean = false): String = suspendCancellableCoroutine { cont ->
         val pc = peerConnection ?: return@suspendCancellableCoroutine cont.resumeWithException(
             IllegalStateException("start() must be called before createOffer()"),
         )
-        val constraints = MediaConstraints()
+        val constraints = MediaConstraints().apply {
+            // Phase 2B: a restart gathers fresh candidates so a call survives a Wi-Fi <-> mobile data switch.
+            if (iceRestart) mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
+        }
         pc.createOffer(object : SdpObserverAdapter() {
             override fun onCreateSuccess(desc: SessionDescription) {
                 pc.setLocalDescription(SdpObserverAdapter(), desc)
@@ -176,6 +197,33 @@ class WebRtcClient(
         peerConnection?.addIceCandidate(
             IceCandidate(candidate.sdpMid, candidate.sdpMLineIndex, candidate.candidate),
         )
+    }
+
+    private var previousCounters: StatsCounters? = null
+
+    /** Phase 2B: one quality measurement (RTT / loss / jitter); empty sample if stats are unavailable. */
+    suspend fun sampleStats(): CallStatsSample = suspendCancellableCoroutine { cont ->
+        val pc = peerConnection
+        if (pc == null) {
+            cont.resume(CallStatsSample(null, null, null))
+            return@suspendCancellableCoroutine
+        }
+        pc.getStats { report ->
+            val raw = report.statsMap.values.map { RawStat(it.type, it.members) }
+            val (sample, counters) = CallStatsParser.parse(raw, previousCounters)
+            previousCounters = counters
+            if (cont.isActive) cont.resume(sample)
+        }
+    }
+
+    /** Phase 2B: caps the video sender's bitrate (adaptive bitrate on weak networks). Safe to call at any time. */
+    fun setMaxVideoBitrate(bitsPerSecond: Int) {
+        val pc = peerConnection ?: return
+        val sender = pc.senders.firstOrNull { it.track()?.kind() == "video" } ?: return
+        val parameters = sender.getParameters()
+        if (parameters.encodings.isEmpty()) return
+        parameters.encodings.forEach { it.maxBitrateBps = bitsPerSecond }
+        sender.setParameters(parameters)
     }
 
     fun setMuted(muted: Boolean) {

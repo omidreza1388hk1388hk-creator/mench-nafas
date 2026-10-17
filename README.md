@@ -9,7 +9,7 @@ The "Manch/Ludo" concept referenced in the product brief is a brand/visual
 identity inspiration only — this is not a game, and no game logic exists
 or is planned in this codebase.
 
-## What's actually implemented (Phase 1 + Phase 2 + Phase 3: images, files, voice, video + Phase 4: message actions + Phase 5: group conversations)
+## What's actually implemented (Phase 3A part 1: heartbeat + message effects, see docs/PHASE3A_PART1.md; Phase 1 + Phase 2 + Phase 3: images, files, voice, video + Phase 4: message actions + Phase 5: group conversations)
 
 - Phone number + OTP authentication (request → verify → session)
 - Refresh token rotation, logout, logout-all-devices

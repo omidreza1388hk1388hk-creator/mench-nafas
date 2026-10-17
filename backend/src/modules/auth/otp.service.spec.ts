@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { OtpService } from './otp.service';
 import { OtpRepository, OtpChallengeRow } from './otp.repository';
 import { SmsProvider } from './sms-provider.interface';
@@ -38,7 +38,9 @@ describe('OtpService', () => {
 
   it('rejects a new OTP request while the resend cooldown is active', async () => {
     redis.get.mockResolvedValueOnce('1');
-    await expect(service.requestOtp(phone)).rejects.toBeInstanceOf(BadRequestException);
+    const error = await service.requestOtp(phone).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
     expect(otpRepository.create).not.toHaveBeenCalled();
   });
 

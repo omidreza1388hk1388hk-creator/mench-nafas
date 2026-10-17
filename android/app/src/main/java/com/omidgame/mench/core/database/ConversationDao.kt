@@ -13,8 +13,27 @@ interface ConversationDao {
     @Upsert
     suspend fun upsertAll(conversations: List<ConversationEntity>)
 
-    @Query("SELECT * FROM conversations ORDER BY lastMessageAtEpochMillis DESC")
+    @Query("SELECT * FROM conversations ORDER BY isPinned DESC, lastMessageAtEpochMillis DESC")
     fun observeAll(): Flow<List<ConversationEntity>>
+
+    @Query("UPDATE conversations SET togetherSince = :togetherSince, nextMeetDate = :nextMeetDate WHERE id = :id")
+    suspend fun updateUsDates(id: String, togetherSince: String?, nextMeetDate: String?)
+
+    @Query("UPDATE conversations SET isMuted = :isMuted WHERE id = :id")
+    suspend fun updateMuted(id: String, isMuted: Boolean)
+
+    @Query("UPDATE conversations SET pinnedMessageId = :messageId WHERE id = :id")
+    suspend fun updatePinnedMessage(id: String, messageId: String?)
+
+    @Query("UPDATE conversations SET isArchived = :isArchived WHERE id = :id")
+    suspend fun updateArchived(id: String, isArchived: Boolean)
+
+    @Query("UPDATE conversations SET isPinned = :isPinned WHERE id = :id")
+    suspend fun updatePinned(id: String, isPinned: Boolean)
+
+    /** One-shot read for places without a Flow collector (the home-screen widget). */
+    @Query("SELECT * FROM conversations")
+    suspend fun getAllOnce(): List<ConversationEntity>
 
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun getById(id: String): ConversationEntity?

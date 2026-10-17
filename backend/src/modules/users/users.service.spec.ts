@@ -12,6 +12,7 @@ describe('UsersService.updateProfile', () => {
     display_name: 'Old Name',
     username: null,
     avatar_url: null,
+    avatar_version: null,
     bio: null,
     notification_privacy_mode: 'full_content',
     created_at: new Date(),
@@ -23,7 +24,7 @@ describe('UsersService.updateProfile', () => {
       findById: jest.fn(),
       updateProfile: jest.fn(),
     } as unknown as jest.Mocked<UsersRepository>;
-    service = new UsersService(repository);
+    service = new UsersService(repository, { put: jest.fn(), get: jest.fn(), delete: jest.fn() } as never);
   });
 
   it('throws NotFoundException when the user does not exist', async () => {
@@ -64,5 +65,19 @@ describe('UsersService.updateProfile', () => {
     repository.updateProfile.mockRejectedValue(dbError);
 
     await expect(service.updateProfile('user-1', { bio: 'hi' })).rejects.toBe(dbError);
+  });
+});
+
+describe('UsersService contact privacy', () => {
+  it('delegates get/set to the repository', async () => {
+    const repository = {
+      getContactPrivacy: jest.fn().mockResolvedValue(true),
+      setContactPrivacy: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<UsersRepository>;
+    const service = new UsersService(repository, { put: jest.fn(), get: jest.fn(), delete: jest.fn() } as never);
+
+    await service.setContactPrivacy('user-1', false);
+    expect(repository.setContactPrivacy).toHaveBeenCalledWith('user-1', false);
+    await expect(service.getContactPrivacy('user-1')).resolves.toBe(true);
   });
 });

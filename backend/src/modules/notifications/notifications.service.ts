@@ -4,6 +4,7 @@ import { UsersService } from '../users/users.service';
 import { NotificationPrivacyMode } from '../users/users.repository';
 import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
 import { NOTIFICATION_PROVIDER, NotificationPayload, NotificationProvider } from './notification-provider.interface';
+import { describeRichBody } from '../messages/rich-body';
 
 export interface NotifyNewMessageParams {
   recipientUserIds: string[];
@@ -20,6 +21,25 @@ export interface NotifyAddedToGroupParams {
   conversationId: string;
   conversationTitle: string;
   addedByDisplayName: string;
+}
+
+export interface NotifyMissYouParams {
+  recipientUserIds: string[];
+  conversationId: string;
+  senderDisplayName: string;
+}
+
+export interface NotifyLetterReceivedParams {
+  recipientUserIds: string[];
+  conversationId: string;
+  senderDisplayName: string;
+}
+
+export interface NotifyAffectionParams {
+  recipientUserIds: string[];
+  conversationId: string;
+  senderDisplayName: string;
+  kind: 'hug' | 'kiss';
 }
 
 const MAX_BODY_PREVIEW_LENGTH = 120;
@@ -108,6 +128,90 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Phase 9 — "I miss you". Skips connected recipients (the live miss_you
+   * event already played the animation). Hidden-content mode shows the
+   * generic text, like every other notification.
+   */
+  async notifyMissYou(params: NotifyMissYouParams): Promise<void> {
+    for (const recipientUserId of params.recipientUserIds) {
+      try {
+        if (this.realtimeBroadcaster.isUserConnected(recipientUserId)) continue;
+        const recipient = await this.usersService.findById(recipientUserId);
+        if (!recipient) continue;
+
+        const hidden = recipient.notification_privacy_mode === 'hide_content';
+        await this.sendToAllDevices(recipientUserId, {
+          title: hidden ? 'MENCH' : params.senderDisplayName,
+          body: hidden ? 'You have a new message' : 'دلم برات تنگ شده 💗',
+          data: { conversationId: params.conversationId, type: 'miss_you' },
+          collapseKey: `miss-you-${params.conversationId}`,
+        });
+      } catch (err) {
+        this.logger.warn(`notifyMissYou failed (non-fatal): ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /** Phase 9 — a sealed letter arrived. Never includes the title/body (they're meant to be a surprise). Skips connected recipients (the live letter.received event covers them). */
+  async notifyLetterReceived(params: NotifyLetterReceivedParams): Promise<void> {
+    for (const recipientUserId of params.recipientUserIds) {
+      try {
+        if (this.realtimeBroadcaster.isUserConnected(recipientUserId)) continue;
+        const recipient = await this.usersService.findById(recipientUserId);
+        if (!recipient) continue;
+        const hidden = recipient.notification_privacy_mode === 'hide_content';
+        await this.sendToAllDevices(recipientUserId, {
+          title: hidden ? 'MENCH' : params.senderDisplayName,
+          body: hidden ? 'You have a new message' : 'برات یه نامه نوشته 💌',
+          data: { conversationId: params.conversationId, type: 'letter' },
+          collapseKey: `letter-${params.conversationId}`,
+        });
+      } catch (err) {
+        this.logger.warn(`notifyLetterReceived failed (non-fatal): ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /** Phase 3A — a time-capsule letter just became openable. Like notifyLetterReceived, it never includes the title or body. */
+  async notifyLetterUnlocked(params: NotifyLetterReceivedParams): Promise<void> {
+    for (const recipientUserId of params.recipientUserIds) {
+      try {
+        const recipient = await this.usersService.findById(recipientUserId);
+        if (!recipient) continue;
+        const hidden = recipient.notification_privacy_mode === 'hide_content';
+        await this.sendToAllDevices(recipientUserId, {
+          title: hidden ? 'MENCH' : params.senderDisplayName,
+          body: hidden ? 'You have a new message' : 'نامه‌ای که برات نوشته بود حالا آماده‌ی باز شدنه 💌',
+          data: { conversationId: params.conversationId, type: 'letter' },
+          collapseKey: `letter-unlocked-${params.conversationId}`,
+        });
+      } catch (err) {
+        this.logger.warn(`notifyLetterUnlocked failed (non-fatal): ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /** Phase 9 — hug/kiss push, only when the recipient has no live socket (the live event already animates). */
+  async notifyAffection(params: NotifyAffectionParams): Promise<void> {
+    for (const recipientUserId of params.recipientUserIds) {
+      try {
+        if (this.realtimeBroadcaster.isUserConnected(recipientUserId)) continue;
+        const recipient = await this.usersService.findById(recipientUserId);
+        if (!recipient) continue;
+        const hidden = recipient.notification_privacy_mode === 'hide_content';
+        await this.sendToAllDevices(recipientUserId, {
+          title: hidden ? 'MENCH' : params.senderDisplayName,
+          body: hidden ? 'You have a new message' : params.kind === 'hug' ? 'بغلت کرد 🤗' : 'برات بوس فرستاد 😘',
+          data: { conversationId: params.conversationId, type: 'affection' },
+          collapseKey: `affection-${params.conversationId}`,
+        });
+      } catch (err) {
+        this.logger.warn(`notifyAffection failed (non-fatal): ${(err as Error).message}`);
+      }
+    }
+  }
+
   private async sendToAllDevices(userId: string, payload: NotificationPayload): Promise<void> {
     const devices = await this.devicesRepository.listPushableForUser(userId);
     for (const device of devices) {
@@ -123,9 +227,11 @@ export class NotificationsService {
    * lock screen reveals, which is backwards.
    */
   private buildMessagePayload(mode: NotificationPrivacyMode, params: NotifyNewMessageParams): NotificationPayload {
-    const bodyPreview = params.messageKind === 'text' && params.messageBody
-      ? truncate(params.messageBody)
-      : describeMessageKind(params.messageKind);
+    const richPreview = params.messageKind === 'text' && params.messageBody ? describeRichBody(params.messageBody) : null;
+    const bodyPreview = richPreview
+      ?? (params.messageKind === 'text' && params.messageBody
+        ? truncate(params.messageBody)
+        : describeMessageKind(params.messageKind));
 
     const conversationLabel = params.conversationTitle ?? params.senderDisplayName;
 

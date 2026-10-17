@@ -27,11 +27,27 @@ class AccountSettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
+                    userId = profile?.id.orEmpty(),
+                    avatarVersion = profile?.avatarVersion,
                     phoneE164 = profile?.phoneE164.orEmpty(),
                     displayName = profile?.displayName.orEmpty(),
                     username = profile?.username.orEmpty(),
                     bio = profile?.bio.orEmpty(),
                 )
+            }
+        }
+    }
+
+    fun onAvatarPicked(imageUri: String) {
+        _uiState.update { it.copy(isUploadingAvatar = true, errorMessage = null) }
+        viewModelScope.launch {
+            val profile = profileRepository.uploadAvatar(imageUri)
+            _uiState.update {
+                if (profile != null) {
+                    it.copy(isUploadingAvatar = false, userId = profile.id, avatarVersion = profile.avatarVersion)
+                } else {
+                    it.copy(isUploadingAvatar = false, errorMessage = "Couldn't upload the photo. Check your connection and try again.")
+                }
             }
         }
     }

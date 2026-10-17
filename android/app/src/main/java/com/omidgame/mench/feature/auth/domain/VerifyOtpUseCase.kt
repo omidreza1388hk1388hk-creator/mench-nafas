@@ -10,9 +10,10 @@ class VerifyOtpUseCase @Inject constructor(
         code: String,
         deviceName: String,
     ): AuthResult<Unit> {
-        if (code.isBlank()) {
+        val cleanCode = normalizeOtpCode(code)
+        if (cleanCode.isEmpty()) {
             return AuthResult.Failure(AuthFailureReason.INVALID_OR_EXPIRED_CODE)
         }
-        return authRepository.verifyOtp(challenge, code, deviceName)
+        return authRepository.verifyOtp(challenge, cleanCode, deviceName)
     }
 }

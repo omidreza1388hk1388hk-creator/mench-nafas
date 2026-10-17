@@ -20,7 +20,9 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_TTL_SECONDS: Joi.number().default(900),
   JWT_REFRESH_TTL_SECONDS: Joi.number().default(2_592_000),
 
-  OTP_PROVIDER: Joi.string().valid('dev', 'sms').default('dev'),
+  OTP_PROVIDER: Joi.string().valid('dev', 'sms', 'kavenegar').default('dev'),
+  KAVENEGAR_API_KEY: Joi.string().allow('').optional(),
+  KAVENEGAR_TEMPLATE: Joi.string().allow('').optional(),
   OTP_TTL_SECONDS: Joi.number().default(120),
   OTP_LENGTH: Joi.number().min(4).max(8).default(5),
   OTP_MAX_ATTEMPTS: Joi.number().default(5),
@@ -29,6 +31,23 @@ export const envValidationSchema = Joi.object({
   SMS_PROVIDER_API_KEY: Joi.string().allow('').optional(),
   SMS_PROVIDER_SENDER_ID: Joi.string().allow('').optional(),
 
+  // Phase 1C. Admin panel stays disabled (404) unless ADMIN_API_KEY (min 16 chars) is set.
+  ADMIN_API_KEY: Joi.string().min(16).allow('').optional(),
+  // Optional second key with moderation-only scope (min 16 chars).
+  MODERATOR_API_KEY: Joi.string().min(16).allow('').optional(),
+  PUBLIC_LINK_BASE: Joi.string().uri().optional(),
+  APP_LATEST_VERSION_CODE: Joi.number().optional(),
+  APP_MIN_VERSION_CODE: Joi.number().optional(),
+  APP_DOWNLOAD_URL: Joi.string().allow('').optional(),
+
+  // GIF search (Phase 2A). Tenor's API was shut down on 2026-06-30, so this uses Giphy.
+  // Optional: without a key /gifs/* answers 503 and the app shows "GIF search isn't set up".
+  GIPHY_API_KEY: Joi.string().allow('').optional(),
+  // Map tiles for the location preview (Phase 2A). Defaults to OpenStreetMap's public tile server.
+  MAP_TILE_URL_TEMPLATE: Joi.string().allow('').optional(),
+  MAP_TILE_USER_AGENT: Joi.string().allow('').optional(),
+  GIPHY_RATING: Joi.string().valid('g', 'pg', 'pg-13', 'r').default('pg-13'),
+
   STORAGE_PROVIDER: Joi.string().valid('local', 's3').default('local'),
   STORAGE_LOCAL_DIR: Joi.string().default('./uploads'),
   MAX_ATTACHMENT_SIZE_BYTES: Joi.number().default(60 * 1024 * 1024), // 60 MB — bumped from 25MB for video clips
@@ -36,6 +55,16 @@ export const envValidationSchema = Joi.object({
   S3_ACCESS_KEY: Joi.string().allow('').optional(),
   S3_SECRET_KEY: Joi.string().allow('').optional(),
   S3_BUCKET: Joi.string().allow('').optional(),
+  S3_REGION: Joi.string().allow('').optional(), // e.g. "auto" for R2, "us-east-1" for real AWS S3
+
+  // Phone-number allowlist for a private two-person messenger: when set,
+  // /auth/otp/request rejects any phoneE164 not in this list before an
+  // OTP is ever sent, so a stranger can never create an account even by
+  // brute-forcing phone numbers. Comma-separated E.164 numbers
+  // (+989121234567,+15551234567). Left empty (the default), registration
+  // stays open to anyone — matches today's behavior, so nothing changes
+  // until this is explicitly set.
+  ALLOWED_PHONE_NUMBERS: Joi.string().allow('').optional(),
 
   // WebRTC ICE servers (Phase 6 — calls). STUN_URLS always has a working
   // default (a public STUN server) so calls between two devices that are
@@ -61,6 +90,8 @@ export const envValidationSchema = Joi.object({
   // reason to hard-block startup over it the way there is for OTP.
   NOTIFICATIONS_PROVIDER: Joi.string().valid('dev', 'fcm').default('dev'),
   FIREBASE_PROJECT_ID: Joi.string().allow('').optional(),
+  TRANSLATE_URL: Joi.string().allow('').optional(),
+  TRANSLATE_API_KEY: Joi.string().allow('').optional(),
   FIREBASE_CLIENT_EMAIL: Joi.string().allow('').optional(),
   FIREBASE_PRIVATE_KEY: Joi.string().allow('').optional(),
 }).custom((value, helpers) => {

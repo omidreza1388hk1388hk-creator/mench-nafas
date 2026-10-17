@@ -74,6 +74,13 @@ internal fun ConversationResponse.toEntity(existingLastReadSequence: Long): Conv
         otherUserPhoneE164 = otherUserPhoneE164,
         lastMessageAtEpochMillis = lastMessageAt?.let { Instant.parse(it).toEpochMilli() },
         lastReadSequence = existingLastReadSequence,
+        isMuted = isMuted,
+        isPinned = isPinned,
+        isArchived = isArchived,
+        pinnedMessageId = pinnedMessageId,
+        togetherSince = togetherSince,
+        nextMeetDate = nextMeetDate,
+        otherUserAvatarVersion = otherUserAvatarVersion,
     )
 
 /** Phase 6 — the conversation.added realtime event's payload, for a member who was just added to a group. Always a brand-new local row, so there is no existing local read cursor to preserve: 0 is correct here (unlike ConversationResponse.toEntity's refresh path), since this user has never had a read position in a conversation they only just learned exists. */
@@ -87,6 +94,13 @@ internal fun ConversationWire.toEntity(): ConversationEntity =
         otherUserPhoneE164 = otherUserPhoneE164,
         lastMessageAtEpochMillis = lastMessageAt?.let { Instant.parse(it).toEpochMilli() },
         lastReadSequence = 0,
+        isMuted = isMuted,
+        isPinned = isPinned,
+        isArchived = isArchived,
+        pinnedMessageId = pinnedMessageId,
+        togetherSince = togetherSince,
+        nextMeetDate = nextMeetDate,
+        otherUserAvatarVersion = otherUserAvatarVersion,
     )
 
 internal fun ConversationMemberResponse.toDomain(): ConversationMember =
@@ -95,6 +109,7 @@ internal fun ConversationMemberResponse.toDomain(): ConversationMember =
         phoneE164 = phoneE164,
         displayName = displayName,
         role = role,
+        avatarVersion = avatarVersion,
     )
 
 internal fun ConversationEntity.toDomain(): Conversation = Conversation(
@@ -105,6 +120,14 @@ internal fun ConversationEntity.toDomain(): Conversation = Conversation(
     otherUserPhoneE164 = otherUserPhoneE164,
     lastMessageAtEpochMillis = lastMessageAtEpochMillis,
     lastReadSequence = lastReadSequence,
+    otherUserId = otherUserId,
+    isMuted = isMuted,
+    isPinned = isPinned,
+    isArchived = isArchived,
+    pinnedMessageId = pinnedMessageId,
+    togetherSince = togetherSince,
+    nextMeetDate = nextMeetDate,
+    otherUserAvatarVersion = otherUserAvatarVersion,
 )
 
 /**
@@ -121,7 +144,7 @@ internal fun MessageResponse.toEntity(existingLocalContentUri: String?, existing
         senderId = senderId,
         serverId = id,
         kind = kind,
-        body = body,
+        body = com.omidgame.mench.core.crypto.E2eeManager.decryptBody(body),
         sequence = sequence,
         createdAtEpochMillis = Instant.parse(createdAt).toEpochMilli(),
         state = MessageState.SENT.name,
@@ -132,13 +155,16 @@ internal fun MessageResponse.toEntity(existingLocalContentUri: String?, existing
         attachmentWidthPx = attachment?.widthPx,
         attachmentHeightPx = attachment?.heightPx,
         attachmentDurationMs = attachment?.durationMs,
+        attachmentWaveform = attachment?.waveform,
         attachmentHasThumbnail = attachment?.hasThumbnail ?: false,
         localContentUri = existingLocalContentUri,
         localThumbnailUri = existingLocalThumbnailUri,
         editedAtEpochMillis = editedAt?.let { Instant.parse(it).toEpochMilli() },
         deletedAtEpochMillis = deletedAt?.let { Instant.parse(it).toEpochMilli() },
         forwardedFromMessageId = forwardedFromMessageId,
+        replyToMessageId = replyToMessageId,
         reactionsJson = reactions.toReactionsJson(),
+        attachmentBlurHash = attachment?.blurHash,
     )
 
 internal fun MessageWire.toEntity(existingLocalContentUri: String?, existingLocalThumbnailUri: String?): MessageEntity =
@@ -148,7 +174,7 @@ internal fun MessageWire.toEntity(existingLocalContentUri: String?, existingLoca
         senderId = senderId,
         serverId = id,
         kind = kind,
-        body = body,
+        body = com.omidgame.mench.core.crypto.E2eeManager.decryptBody(body),
         sequence = sequence,
         createdAtEpochMillis = Instant.parse(createdAt).toEpochMilli(),
         state = MessageState.SENT.name,
@@ -159,13 +185,16 @@ internal fun MessageWire.toEntity(existingLocalContentUri: String?, existingLoca
         attachmentWidthPx = attachment?.widthPx,
         attachmentHeightPx = attachment?.heightPx,
         attachmentDurationMs = attachment?.durationMs,
+        attachmentWaveform = attachment?.waveform,
         attachmentHasThumbnail = attachment?.hasThumbnail ?: false,
         localContentUri = existingLocalContentUri,
         localThumbnailUri = existingLocalThumbnailUri,
         editedAtEpochMillis = editedAt?.let { Instant.parse(it).toEpochMilli() },
         deletedAtEpochMillis = deletedAt?.let { Instant.parse(it).toEpochMilli() },
         forwardedFromMessageId = forwardedFromMessageId,
+        replyToMessageId = replyToMessageId,
         reactionsJson = reactions.toReactionsJsonWire(),
+        attachmentBlurHash = attachment?.blurHash,
     )
 
 internal fun MessageEntity.toDomain(selfUserId: String?): Message = Message(
@@ -187,6 +216,8 @@ internal fun MessageEntity.toDomain(selfUserId: String?): Message = Message(
             hasThumbnail = attachmentHasThumbnail,
             localContentUri = localContentUri,
             localThumbnailUri = localThumbnailUri,
+            blurHash = attachmentBlurHash,
+            waveform = com.omidgame.mench.core.media.Waveform.decode(attachmentWaveform),
         )
     } else {
         null
@@ -198,5 +229,6 @@ internal fun MessageEntity.toDomain(selfUserId: String?): Message = Message(
     editedAtEpochMillis = editedAtEpochMillis,
     deletedAtEpochMillis = deletedAtEpochMillis,
     forwardedFromMessageId = forwardedFromMessageId,
+    replyToMessageId = replyToMessageId,
     reactions = reactionsJson.toReactionSummaries(selfUserId),
 )

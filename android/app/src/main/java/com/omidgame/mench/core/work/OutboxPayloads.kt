@@ -8,6 +8,9 @@ data class SendMessagePayload(
     val conversationId: String,
     val clientMsgId: String,
     val body: String,
+    val replyToMessageId: String? = null,
+    /** Phase 2A: send without a push notification. Absent in entries queued by older versions (= false). */
+    val silent: Boolean = false,
 )
 
 /**
@@ -32,6 +35,8 @@ data class SendAttachmentMessagePayload(
     val thumbnailLocalPath: String?,
     val widthPx: Int?,
     val heightPx: Int?,
+    /** Phase 2A — voice messages: base64 amplitude bytes; null for everything else and for entries queued before this field existed. */
+    val waveform: String? = null,
 )
 
 // Phase 4 (edit/delete/forward/reactions) payloads. Unlike SEND_MESSAGE /

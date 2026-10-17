@@ -96,6 +96,14 @@ class CallRepositoryImpl @Inject constructor(
         realtimeClient.send(ClientToServerEvent.CallHangup(callId))
     }
 
+    override fun sendChat(callId: String, text: String) {
+        realtimeClient.send(ClientToServerEvent.CallChat(callId, text))
+    }
+
+    override fun sendReaction(callId: String, emoji: String) {
+        realtimeClient.send(ClientToServerEvent.CallReaction(callId, emoji))
+    }
+
     private fun mapToSignal(event: ServerToClientEvent): CallSignalEvent? = when (event) {
         is ServerToClientEvent.CallIncoming -> CallSignalEvent.Incoming(
             callId = event.call.id,
@@ -114,6 +122,8 @@ class CallRepositoryImpl @Inject constructor(
             event.callId, event.candidate, event.sdpMid, event.sdpMLineIndex,
         )
         is ServerToClientEvent.CallHangup -> CallSignalEvent.RemoteHangup(event.callId)
+        is ServerToClientEvent.CallChat -> CallSignalEvent.RemoteChat(event.callId, event.text, event.sentAt)
+        is ServerToClientEvent.CallReaction -> CallSignalEvent.RemoteReaction(event.callId, event.emoji)
         else -> null // not a call.* frame — this collector only cares about those
     }
 }

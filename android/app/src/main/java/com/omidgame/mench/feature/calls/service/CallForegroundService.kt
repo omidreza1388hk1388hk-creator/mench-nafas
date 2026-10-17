@@ -42,7 +42,8 @@ class CallForegroundService : Service() {
                 val callType = CallType.valueOf(intent.getStringExtra(EXTRA_CALL_TYPE) ?: CallType.VOICE.name)
                 val isOutgoing = intent.getBooleanExtra(EXTRA_IS_OUTGOING, false)
                 startForegroundWithType(buildRingingNotification(callType, isOutgoing), callType)
-                if (!isOutgoing) startRingtone()
+                // Settings Phase 1D: optional "no ringing in quiet hours" (default keeps ringing).
+                if (!isOutgoing && !com.omidgame.mench.core.notifications.NotificationPolicy(applicationContext).suppressCallRing()) startRingtone()
             }
             ACTION_START_ACTIVE -> {
                 stopRingtone()

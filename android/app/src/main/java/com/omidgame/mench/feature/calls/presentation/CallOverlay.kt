@@ -5,6 +5,18 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -27,12 +39,15 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -140,24 +155,85 @@ private fun DialingScreen(
 @Composable
 private fun InCallScreen(state: CallUiState.Active, viewModel: CallViewModel) {
     val session = state.session
+    val inPip by CallPip.flow.collectAsState()
+    var showRoutes by remember { mutableStateOf(false) }
+    var showChat by remember { mutableStateOf(false) }
+    var showReactions by remember { mutableStateOf(false) }
+    val chat by viewModel.chat.collectAsState()
+    val unread by viewModel.unreadChat.collectAsState()
+    LaunchedEffect(showChat) { viewModel.setChatPanelOpen(showChat) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { viewModel.setChatPanelOpen(false) } }
 
-    if (session.callType == CallType.VIDEO) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            InCallVideoRenderers(viewModel)
-            InCallControls(state, viewModel, modifier = Modifier.align(Alignment.BottomCenter))
-            CallHeader(session.otherDisplayName, session.otherPhoneE164, state.durationSeconds, modifier = Modifier.align(Alignment.TopStart))
-        }
-    } else {
-        CallScaffold {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CallerAvatar(session.otherDisplayName, session.otherPhoneE164)
-                Spacer(Modifier.height(16.dp))
-                Text(text = formatDuration(state.durationSeconds), style = MaterialTheme.typography.bodyLarge, color = Color.White)
+    val extras = InCallExtras(
+        onRouteClick = { showRoutes = true },
+        onChatClick = { showChat = !showChat; showReactions = false },
+        onReactClick = { showReactions = !showReactions; showChat = false },
+        unreadChat = unread,
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (session.callType == CallType.VIDEO) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                InCallVideoRenderers(viewModel)
+                if (!inPip) {
+                    InCallControls(state, viewModel, extras, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+                    CallHeader(session.otherDisplayName, session.otherPhoneE164, state.durationSeconds, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding())
+                }
             }
-            InCallControls(state, viewModel, modifier = Modifier.fillMaxWidth().padding(bottom = 48.dp))
+        } else {
+            CallScaffold {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CallerAvatar(session.otherDisplayName, session.otherPhoneE164)
+                    Spacer(Modifier.height(16.dp))
+                    Text(text = formatDuration(state.durationSeconds), style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                }
+                if (!inPip) {
+                    InCallControls(state, viewModel, extras, modifier = Modifier.fillMaxWidth().padding(bottom = 48.dp))
+                }
+            }
+        }
+
+        if (!inPip) {
+            QualityBadge(
+                tier = state.quality,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = if (session.callType == CallType.VIDEO) 176.dp else 20.dp, end = 24.dp),
+            )
+            if (state.reconnecting) {
+                ReconnectingBanner(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp))
+            }
+            FloatingReactions(viewModel.reactions)
+            if (showReactions) {
+                ReactionBar(
+                    onPick = {
+                        viewModel.sendReaction(it)
+                        showReactions = false
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 190.dp),
+                )
+            }
+            if (showChat) {
+                CallChatPanel(chat, onSend = viewModel::sendChat, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 150.dp))
+            }
         }
     }
+
+    if (showRoutes) {
+        AudioRouteSheet(
+            available = state.availableRoutes,
+            selected = state.route,
+            onSelect = viewModel::selectAudioRoute,
+            onDismiss = { showRoutes = false },
+        )
+    }
 }
+
+/** Callbacks + state for the secondary in-call buttons (output, chat, reactions). */
+private class InCallExtras(
+    val onRouteClick: () -> Unit,
+    val onChatClick: () -> Unit,
+    val onReactClick: () -> Unit,
+    val unreadChat: Int,
+)
 
 /**
  * Two independent SurfaceViewRenderers — full-screen remote, small
@@ -195,31 +271,50 @@ private fun BoxScope.InCallVideoRenderers(viewModel: CallViewModel) {
         factory = { ctx ->
             SurfaceViewRenderer(ctx).apply {
                 setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setMirror(true)
+                setMirror(com.omidgame.mench.core.webrtc.CallSettingsStore.current.mirrorFrontCamera)
             }.also { localRenderer = it }
         },
     )
 }
 
 @Composable
-private fun InCallControls(state: CallUiState.Active, viewModel: CallViewModel, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-        SmallToggleButton(
-            icon = if (state.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-            active = state.isMuted,
-            onClick = viewModel::toggleMute,
-        )
-        if (state.session.callType == CallType.VIDEO) {
-            SmallToggleButton(
-                icon = if (state.isLocalVideoEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
-                active = !state.isLocalVideoEnabled,
-                onClick = viewModel::toggleLocalVideo,
-            )
-            SmallToggleButton(icon = Icons.Default.Cameraswitch, active = false, onClick = viewModel::switchCamera)
-        } else {
-            SmallToggleButton(icon = Icons.Default.VolumeUp, active = state.isSpeakerOn, onClick = viewModel::toggleSpeaker)
+private fun InCallControls(state: CallUiState.Active, viewModel: CallViewModel, extras: InCallExtras, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            SmallToggleButton(icon = routeIcon(state.route), active = false, onClick = extras.onRouteClick, description = stringResource(R.string.call_route_title))
+            Box {
+                SmallToggleButton(icon = Icons.Default.Chat, active = false, onClick = extras.onChatClick, description = stringResource(R.string.call_chat))
+                if (extras.unreadChat > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(14.dp)
+                            .background(MaterialTheme.colorScheme.error, CircleShape),
+                    )
+                }
+            }
+            SmallToggleButton(icon = Icons.Default.EmojiEmotions, active = false, onClick = extras.onReactClick, description = stringResource(R.string.call_react))
         }
-        CallActionButton(icon = Icons.Default.CallEnd, background = MaterialTheme.colorScheme.error, onClick = viewModel::hangUp, size = 56.dp)
+        Row(modifier = Modifier.padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            SmallToggleButton(
+                icon = if (state.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                active = state.isMuted,
+                onClick = viewModel::toggleMute,
+                description = stringResource(if (state.isMuted) R.string.call_unmute else R.string.call_mute),
+            )
+            if (state.session.callType == CallType.VIDEO) {
+                SmallToggleButton(
+                    icon = if (state.isLocalVideoEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
+                    active = !state.isLocalVideoEnabled,
+                    onClick = viewModel::toggleLocalVideo,
+                    description = stringResource(R.string.call_toggle_camera),
+                )
+                SmallToggleButton(icon = Icons.Default.Cameraswitch, active = false, onClick = viewModel::switchCamera, description = stringResource(R.string.round_video_flip))
+            } else {
+                SmallToggleButton(icon = Icons.Default.VolumeUp, active = state.isSpeakerOn, onClick = viewModel::toggleSpeaker, description = stringResource(R.string.call_route_speaker))
+            }
+            CallActionButton(icon = Icons.Default.CallEnd, background = MaterialTheme.colorScheme.error, onClick = viewModel::hangUp, size = 64.dp)
+        }
     }
 }
 
@@ -252,48 +347,78 @@ private fun CallScaffold(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121214)),
+            .background(Brush.verticalGradient(listOf(Color(0xFF3F0D2B), Color(0xFF1B0A24), Color(0xFF0B0B14))))
+            .statusBarsPadding()
+            .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Spacer(Modifier.height(64.dp))
+        Spacer(Modifier.height(56.dp))
         content()
     }
 }
 
+/** Large avatar with two expanding halo rings and a soft glow, then the caller's name. */
 @Composable
 private fun CallerAvatar(displayName: String?, phoneE164: String) {
-    Surface(shape = CircleShape, color = Color(0xFF3A3A3E), modifier = Modifier.size(120.dp)) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+    val infinite = rememberInfiniteTransition(label = "callHalo")
+    val ring by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2200), RepeatMode.Restart),
+        label = "ring",
+    )
+    Box(modifier = Modifier.size(240.dp), contentAlignment = Alignment.Center) {
+        listOf(0f, 0.5f).forEach { offset ->
+            val p = (ring + offset) % 1f
+            Box(
+                modifier = Modifier
+                    .size(130.dp)
+                    .graphicsLayer {
+                        val sc = 1f + p * 0.85f
+                        scaleX = sc; scaleY = sc
+                        alpha = (1f - p) * 0.35f
+                    }
+                    .background(Brush.radialGradient(listOf(Color(0xFFFF6FA3), Color.Transparent)), CircleShape),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(128.dp)
+                .background(Brush.linearGradient(listOf(Color(0xFFE23676), Color(0xFF7A1A4D))), CircleShape)
+                .border(3.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 text = (displayName?.firstOrNull() ?: phoneE164.lastOrNull() ?: '?').toString().uppercase(),
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
                 color = Color.White,
             )
         }
     }
-    Spacer(Modifier.height(12.dp))
-    Text(text = displayName ?: phoneE164, style = MaterialTheme.typography.titleLarge, color = Color.White)
+    Text(text = displayName ?: phoneE164, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
 }
 
 @Composable
-private fun CallActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, background: Color, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 64.dp) {
-    Surface(shape = CircleShape, color = background, modifier = Modifier.size(size)) {
+private fun CallActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, background: Color, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 72.dp) {
+    Surface(shape = CircleShape, color = background, shadowElevation = 10.dp, modifier = Modifier.size(size)) {
         IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = null, tint = Color.White)
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(size / 2.4f))
         }
     }
 }
 
 @Composable
-private fun SmallToggleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean, onClick: () -> Unit) {
+private fun SmallToggleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean, onClick: () -> Unit, description: String? = null) {
     Surface(
         shape = CircleShape,
-        color = if (active) Color.White else Color.White.copy(alpha = 0.2f),
-        modifier = Modifier.size(52.dp),
+        color = if (active) Color.White else Color.White.copy(alpha = 0.16f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
+        modifier = Modifier.size(60.dp),
     ) {
         IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = null, tint = if (active) Color.Black else Color.White)
+            Icon(icon, contentDescription = description, tint = if (active) Color(0xFF3F0D2B) else Color.White)
         }
     }
 }

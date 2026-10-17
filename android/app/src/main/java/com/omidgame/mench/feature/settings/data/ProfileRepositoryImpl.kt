@@ -1,6 +1,15 @@
 package com.omidgame.mench.feature.settings.data
 
 import com.omidgame.mench.core.database.UserDao
+import java.io.ByteArrayOutputStream
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MultipartBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.net.Uri
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.content.Context
 import com.omidgame.mench.core.database.UserEntity
 import com.omidgame.mench.core.network.UpdateProfileBody
 import com.omidgame.mench.core.network.UserProfileResponse
@@ -18,7 +27,35 @@ import javax.inject.Inject
 class ProfileRepositoryImpl @Inject constructor(
     private val usersApi: UsersApi,
     private val userDao: UserDao,
+    @ApplicationContext private val context: Context,
 ) : ProfileRepository {
+
+    override suspend fun uploadAvatar(imageUri: String): Profile? = withContext(Dispatchers.IO) {
+        try {
+            val uri = Uri.parse(imageUri)
+            // Decode a downsampled bitmap (max ~1024px), then JPEG-compress: camera photos
+            // can be many MB, the server only keeps 256x256 anyway.
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            var sample = 1
+            while (bounds.outWidth / sample > 1024 || bounds.outHeight / sample > 1024) sample *= 2
+            val bitmap = context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+            } ?: return@withContext null
+            val out = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            bitmap.recycle()
+            val part = MultipartBody.Part.createFormData(
+                "file",
+                "avatar.jpg",
+                out.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()),
+            )
+            usersApi.uploadAvatar(part).also { cacheResponse(it) }.toProfile()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
     /**
      * Local cache first — the account screen should render instantly with
@@ -73,6 +110,8 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     private fun UserProfileResponse.toProfile() = Profile(
+        id = id,
+        avatarVersion = avatarVersion,
         phoneE164 = phoneE164,
         displayName = displayName,
         username = username,
@@ -80,6 +119,7 @@ class ProfileRepositoryImpl @Inject constructor(
     )
 
     private fun UserEntity.toProfile() = Profile(
+        id = id,
         phoneE164 = phoneE164,
         displayName = displayName,
         username = username,

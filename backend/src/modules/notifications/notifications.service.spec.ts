@@ -28,6 +28,7 @@ function makeUser(overrides: Partial<UserRow> = {}): UserRow {
     display_name: 'Alpha',
     username: null,
     avatar_url: null,
+    avatar_version: null,
     bio: null,
     created_at: new Date('2026-01-01T00:00:00.000Z'),
     updated_at: new Date('2026-01-01T00:00:00.000Z'),
@@ -120,6 +121,28 @@ describe('NotificationsService', () => {
         data: { conversationId: 'conv-1', type: 'message' },
         collapseKey: 'conv-1',
       });
+    });
+
+    it('full_content: a sticker or GIF marker is shown as a placeholder, never as raw marker text', async () => {
+      broadcaster.isUserConnected.mockReturnValue(false);
+      users.findById.mockResolvedValue(makeUser({ notification_privacy_mode: 'full_content' }));
+      devices.listPushableForUser.mockResolvedValue([makeDevice()]);
+
+      for (const [messageBody, expected] of [
+        ['sticker:v1:love_01', '[sticker]'],
+        ['gif:v1:xT9IgzoKnwFNmISR8I:200:150', '[GIF]'],
+      ] as const) {
+        provider.sendToDevice.mockClear();
+        await service.notifyNewMessage({
+          recipientUserIds: ['user-1'],
+          conversationId: 'conv-1',
+          conversationTitle: null,
+          senderDisplayName: 'Alpha',
+          messageKind: 'text',
+          messageBody,
+        });
+        expect(provider.sendToDevice).toHaveBeenCalledWith('fake-token', expect.objectContaining({ body: expected }));
+      }
     });
 
     it('full_content: prefixes the sender name in the body for a group conversation', async () => {

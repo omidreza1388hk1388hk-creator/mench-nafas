@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Enforces TLS for all production traffic. Cleartext is permitted only
-     for 10.0.2.2 (the Android emulator's alias for the host machine),
-     so local backend development works without weakening the policy for
-     real devices or production hosts. -->
+<!-- Enforces TLS for production traffic. Cleartext is permitted only
+     for 10.0.2.2, the Android emulator's alias for the host machine,
+     so local development works without weakening production security. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">

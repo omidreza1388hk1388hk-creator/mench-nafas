@@ -30,7 +30,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.7.0-phase6-merged"
+        versionName = "4.0.0-all-phases"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Base URL is injected per build, resolved at Gradle configuration
@@ -39,9 +39,57 @@ android {
         // string containing valid Java-source-literal text (i.e. wrapped
         // in escaped quotes), which is why the outer \" \" wrap the
         // interpolated value below.
-        val apiBaseUrl = project.findProperty("MENCH_API_BASE_URL") as String?
-            ?: "http://10.0.2.2:3000/api/v1/"
+        // Production is the safe default so a release/debug APK built locally
+        // cannot silently point at the Android-emulator loopback address.
+        // Local development can still override this with:
+        // -PMENCH_API_BASE_URL="http://10.0.2.2:3000/api/v1/"
+        val configuredApiBaseUrl = project.findProperty("MENCH_API_BASE_URL") as String?
+        val apiBaseUrl = (configuredApiBaseUrl
+            ?: "https://mench-production.up.railway.app/api/v1/")
+            .trim()
+            .let { if (it.endsWith("/")) it else "$it/" }
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+    }
+
+    // Release signing, read from gradle.properties / -P args / env vars so
+    // no keystore path or password is ever committed. Generate a keystore
+    // once with:
+    //   keytool -genkeypair -v -keystore mench-release.keystore \
+    //     -alias mench -keyalg RSA -keysize 2048 -validity 10000
+    // then either add to ~/.gradle/gradle.properties (not the project's,
+    // so it never ends up in git):
+    //   MENCH_RELEASE_STORE_FILE=/full/path/to/mench-release.keystore
+    //   MENCH_RELEASE_STORE_PASSWORD=...
+    //   MENCH_RELEASE_KEY_ALIAS=mench
+    //   MENCH_RELEASE_KEY_PASSWORD=...
+    // or export the same names as environment variables (handy in Termux).
+    // If none are set, the release build type silently falls back to the
+    // debug signing config so `assembleRelease` still produces an
+    // installable (self-signed-debug) APK instead of failing outright —
+    // but that APK cannot receive updates signed with a real key later,
+    // so treat the fallback as dev-only.
+    val releaseStoreFile = (project.findProperty("MENCH_RELEASE_STORE_FILE") as String?)
+        ?: System.getenv("MENCH_RELEASE_STORE_FILE")
+    val releaseStorePassword = (project.findProperty("MENCH_RELEASE_STORE_PASSWORD") as String?)
+        ?: System.getenv("MENCH_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = (project.findProperty("MENCH_RELEASE_KEY_ALIAS") as String?)
+        ?: System.getenv("MENCH_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = (project.findProperty("MENCH_RELEASE_KEY_PASSWORD") as String?)
+        ?: System.getenv("MENCH_RELEASE_KEY_PASSWORD")
+    val hasRealReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasRealReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -53,6 +101,19 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (hasRealReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+        // Phase 1B completion: release-like build the :benchmark module measures and records profiles against.
+        // Signed with the debug key so it installs without the release keystore.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
         }
     }
 
@@ -102,6 +163,31 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")
+    // Phase 2A: in-app round video recording (circular preview, tap to record).
+    val cameraXVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraXVersion")
+    implementation("androidx.camera:camera-camera2:$cameraXVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraXVersion")
+    implementation("androidx.camera:camera-video:$cameraXVersion")
+    implementation("androidx.camera:camera-view:$cameraXVersion")
+    // Phase 1A: system splash (Android 12+ native, compat below) handing off to AnimatedSplash.
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    // Phase 1B: EXIF orientation for the image compressor.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    // Phase 1C: QR generate (ZXing core) + scan (CameraX preview/analysis, no Google Play Services).
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    // Phase 1B: installs src/main/baseline-prof.txt on devices without Play-delivered profiles.
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
+    // Phase 1C completion: Glance home-screen widgets (couple counter, partner quick messages).
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+    // Phase 1B completion: video transcoding before upload.
+    implementation("androidx.media3:media3-transformer:1.4.1")
+    implementation("androidx.media3:media3-effect:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
@@ -120,6 +206,10 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    // Vazirmatn (Persian/Arabic-first) via the Google Fonts downloadable-
+    // fonts provider — see core/ui/theme/Font.kt's doc comment for why
+    // this is fetched at runtime rather than bundled as .ttf assets.
+    implementation("androidx.compose.ui:ui-text-google-fonts")
     implementation("androidx.compose.material3:material3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
@@ -164,6 +254,8 @@ dependencies {
     // thumbnail endpoints require a bearer token like every other API
     // call — a plain unauthenticated image loader would just get 401s.
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Phase 2A: animated GIF decoding for the GIF picker / GIF messages (same version as coil-compose).
+    implementation("io.coil-kt:coil-gif:2.7.0")
 
     // AttachFile/InsertDriveFile (used in the chat composer/file bubble)
     // are NOT part of the small curated icon set bundled by default with

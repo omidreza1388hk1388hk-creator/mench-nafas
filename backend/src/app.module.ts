@@ -17,6 +17,18 @@ import { CallsModule } from './modules/calls/calls.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
+import { AccountModule } from './modules/account/account.module';
+import { EcosystemModule } from './modules/ecosystem/ecosystem.module';
+import { WebLoginModule } from './modules/weblogin/weblogin.module';
+import { SyncModule } from './modules/sync/sync.module';
+import { GifsModule } from './modules/gifs/gifs.module';
+import { PollsModule } from './modules/polls/polls.module';
+import { MapsModule } from './modules/maps/maps.module';
+import { ScheduledMessagesModule } from './modules/scheduled-messages/scheduled-messages.module';
+import { GroupAdminModule } from './modules/group-admin/group-admin.module';
+import { TranslateModule } from './modules/translate/translate.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
+import { TwoStepModule } from './modules/two-step/two-step.module';
 
 @Module({
   imports: [
@@ -44,6 +56,18 @@ import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
     NotificationsModule,
     SearchModule,
     DiagnosticsModule,
+    AccountModule,
+    EcosystemModule,
+    WebLoginModule,
+    SyncModule,
+    GifsModule,
+    PollsModule,
+    MapsModule,
+    ScheduledMessagesModule,
+    GroupAdminModule,
+    TranslateModule,
+    PrivacyModule,
+    TwoStepModule,
   ],
 })
 export class AppModule {}

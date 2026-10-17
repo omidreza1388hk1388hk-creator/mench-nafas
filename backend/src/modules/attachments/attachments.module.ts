@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AttachmentsRepository } from './attachments.repository';
 import { AttachmentsService } from './attachments.service';
 import { AttachmentsController, AttachmentContentController } from './attachments.controller';
+import { ChunkedUploadController } from './chunked-upload.controller';
+import { ChunkedUploadService } from './chunked-upload.service';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { SessionsModule } from '../sessions/sessions.module';
 
@@ -11,8 +13,8 @@ import { SessionsModule } from '../sessions/sessions.module';
 // RedisModule are for every other module's repositories.
 @Module({
   imports: [ConversationsModule, SessionsModule],
-  controllers: [AttachmentsController, AttachmentContentController],
-  providers: [AttachmentsRepository, AttachmentsService],
+  controllers: [AttachmentsController, AttachmentContentController, ChunkedUploadController],
+  providers: [AttachmentsRepository, AttachmentsService, ChunkedUploadService],
   exports: [AttachmentsRepository, AttachmentsService],
 })
 export class AttachmentsModule {}

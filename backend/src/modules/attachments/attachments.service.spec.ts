@@ -1,6 +1,6 @@
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AttachmentsService, UploadAttachmentInput } from './attachments.service';
+import { AttachmentsService, UploadAttachmentInput, normalizeWaveform } from './attachments.service';
 import { AttachmentsRepository, AttachmentRow } from './attachments.repository';
 import { StorageProvider } from '../../storage/storage-provider.interface';
 
@@ -62,6 +62,7 @@ describe('AttachmentsService', () => {
       width_px: input.widthPx,
       height_px: input.heightPx,
       duration_ms: input.durationMs,
+      waveform: input.waveform ?? null,
       created_at: new Date(),
     }) as AttachmentRow);
 
@@ -142,6 +143,43 @@ describe('AttachmentsService', () => {
     expect(result.width_px).toBeNull(); // sharp never runs for audio
     expect(result.thumbnail_storage_key).toBeNull();
     expect(storageProvider.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores a valid waveform on audio and ignores it on every other kind', async () => {
+    const samples = Buffer.from(Array.from({ length: 48 }, (_, i) => (i * 5) % 256));
+    const audio = await service.upload({
+      ...baseInput,
+      originalFilename: 'voice-note.m4a',
+      mimeType: 'audio/mp4',
+      buffer: Buffer.from('fake-m4a-bytes'),
+      durationMs: 4200,
+      waveformBase64: samples.toString('base64'),
+    });
+    expect(audio.waveform).toBe(samples.toString('base64'));
+
+    const file = await service.upload({ ...baseInput, waveformBase64: samples.toString('base64') });
+    expect(file.waveform).toBeNull();
+  });
+
+  it('drops a malformed waveform instead of failing the voice message', async () => {
+    const tooShort = await service.upload({
+      ...baseInput,
+      originalFilename: 'voice-note.m4a',
+      mimeType: 'audio/mp4',
+      durationMs: 1500,
+      waveformBase64: Buffer.from([1, 2, 3]).toString('base64'),
+    });
+    expect(tooShort.kind).toBe('audio');
+    expect(tooShort.waveform).toBeNull();
+  });
+
+  it('normalizeWaveform bounds the sample count', () => {
+    expect(normalizeWaveform(null)).toBeNull();
+    expect(normalizeWaveform('')).toBeNull();
+    expect(normalizeWaveform(Buffer.alloc(7).toString('base64'))).toBeNull();
+    expect(normalizeWaveform(Buffer.alloc(8).toString('base64'))).not.toBeNull();
+    expect(normalizeWaveform(Buffer.alloc(128).toString('base64'))).not.toBeNull();
+    expect(normalizeWaveform(Buffer.alloc(129).toString('base64'))).toBeNull();
   });
 
   it('rejects an audio upload with no durationMs', async () => {

@@ -1,5 +1,6 @@
 package com.omidgame.mench.core.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,4 +14,11 @@ data class ConversationEntity(
     val otherUserPhoneE164: String?,
     val lastMessageAtEpochMillis: Long?,
     val lastReadSequence: Long,
+    @ColumnInfo(defaultValue = "0") val isMuted: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val isPinned: Boolean = false,
+    val togetherSince: String? = null,
+    val nextMeetDate: String? = null,
+    val otherUserAvatarVersion: Long? = null,
+    @ColumnInfo(defaultValue = "0") val isArchived: Boolean = false,
+    val pinnedMessageId: String? = null,
 )

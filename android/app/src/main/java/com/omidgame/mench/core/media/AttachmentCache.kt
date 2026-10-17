@@ -61,9 +61,43 @@ class AttachmentCache @Inject constructor(
      * simply re-downloaded from the attachment endpoint next time it's
      * opened.
      */
-    suspend fun clearAll() = withContext(Dispatchers.IO) {
-        cacheDir.listFiles()?.forEach { it.delete() }
+    suspend fun clearAll(protectedPayloads: List<String> = emptyList()) = withContext(Dispatchers.IO) {
+        // Files that still back an unsent message are kept, otherwise clearing the cache would silently lose them.
+        cacheDir.listFiles()?.filter { !isProtected(it, protectedPayloads) }?.forEach { it.delete() }
         Unit
+    }
+
+    // ---- Phase 1D.5: selective cleanup ----
+
+    enum class CacheType { PHOTOS, VIDEOS, VOICE, FILES }
+
+    private fun typeOf(file: File): CacheType = when (file.extension.lowercase()) {
+        "jpg", "jpeg", "png", "webp", "gif", "heic", "heif" -> CacheType.PHOTOS
+        "mp4", "mov", "mkv", "webm", "3gp" -> CacheType.VIDEOS
+        "m4a", "aac", "ogg", "opus", "mp3", "wav", "amr" -> CacheType.VOICE
+        else -> CacheType.FILES
+    }
+
+    /** Files that still back a queued, unsent message. They are NEVER offered for deletion. */
+    private fun isProtected(file: File, protectedPayloads: List<String>) = protectedPayloads.any { it.contains(file.name) }
+
+    /** Bytes per type that cleanup could really free right now (protected unsent files excluded). */
+    suspend fun freeableBytes(protectedPayloads: List<String>): Map<CacheType, Long> = withContext(Dispatchers.IO) {
+        val out = CacheType.entries.associateWith { 0L }.toMutableMap()
+        cacheDir.walkTopDown().filter { it.isFile && !isProtected(it, protectedPayloads) }.forEach { f ->
+            out[typeOf(f)] = (out[typeOf(f)] ?: 0L) + f.length()
+        }
+        out
+    }
+
+    /** Deletes only the local copies of one type, skipping protected files. Returns the bytes actually freed. */
+    suspend fun clearType(type: CacheType, protectedPayloads: List<String>): Long = withContext(Dispatchers.IO) {
+        var freed = 0L
+        cacheDir.walkTopDown().filter { it.isFile && typeOf(it) == type && !isProtected(it, protectedPayloads) }.forEach { f ->
+            val size = f.length()
+            if (f.delete()) freed += size
+        }
+        freed
     }
 
     /** Phase 6 diagnostics "Storage" check — a real write+read+delete round trip against the same directory attachments actually use, not just a permission-flag check. */

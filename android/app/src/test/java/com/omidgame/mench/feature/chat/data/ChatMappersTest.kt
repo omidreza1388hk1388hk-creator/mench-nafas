@@ -120,6 +120,7 @@ class ChatMappersTest {
                 heightPx = 600,
                 durationMs = null,
                 hasThumbnail = true,
+                waveform = null,
             ),
             sequence = 7,
             createdAt = "2026-01-01T00:00:00.000Z",
@@ -240,5 +241,40 @@ class ChatMappersTest {
         val domain = entity.toDomain(selfUserId = "user-1")
 
         assertThat(domain.deletedAtEpochMillis).isEqualTo(1234L)
+    }
+
+    @Test
+    fun `voice message waveform survives MessageResponse to entity to domain`() {
+        val samples = List(48) { (it * 5) % 256 }
+        val encoded = com.omidgame.mench.core.media.Waveform.encode(samples)
+        val response = MessageResponse(
+            id = "msg-2",
+            conversationId = "conv-1",
+            senderId = "user-2",
+            clientMsgId = "client-2",
+            kind = "audio",
+            body = null,
+            attachment = MessageAttachmentSummaryResponse(
+                id = "att-2",
+                kind = "audio",
+                mimeType = "audio/mp4",
+                originalFilename = "voice-message.m4a",
+                sizeBytes = 4096L,
+                widthPx = null,
+                heightPx = null,
+                durationMs = 4200L,
+                hasThumbnail = false,
+                waveform = encoded,
+            ),
+            sequence = 9,
+            createdAt = "2026-01-01T00:00:00.000Z",
+            editedAt = null,
+            deletedAt = null,
+            forwardedFromMessageId = null,
+        )
+
+        val entity = response.toEntity(existingLocalContentUri = null, existingLocalThumbnailUri = null)
+        assertThat(entity.attachmentWaveform).isEqualTo(encoded)
+        assertThat(entity.toDomain(selfUserId = "user-1").attachment?.waveform).isEqualTo(samples)
     }
 }

@@ -1,9 +1,54 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, ForbiddenException } from '@nestjs/common';
+import sharp from 'sharp';
 import { UsersRepository, UserRow, NotificationPrivacyMode } from './users.repository';
+import { STORAGE_PROVIDER } from '../../storage/storage.module';
+import { StorageProvider } from '../../storage/storage-provider.interface';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+  ) {}
+
+  /** Square-crops to 256x256 JPEG (EXIF-rotated, metadata stripped), stores it, bumps avatar_version. */
+  async setAvatar(userId: string, image: Buffer): Promise<UserRow> {
+    let processed: Buffer;
+    try {
+      processed = await sharp(image).rotate().resize(256, 256, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer();
+    } catch {
+      throw new BadRequestException('Not a valid image');
+    }
+    await this.storage.put(`avatars/${userId}.jpg`, processed, 'image/jpeg');
+    await this.usersRepository.setAvatarVersion(userId, Date.now());
+    const user = await this.usersRepository.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  /** Only the user themself or someone sharing a conversation with them may fetch a photo. */
+  async getAvatar(requesterId: string, targetUserId: string): Promise<Buffer> {
+    if (!(await this.usersRepository.sharesConversation(requesterId, targetUserId))) {
+      throw new NotFoundException('Avatar not found');
+    }
+    const user = await this.usersRepository.findById(targetUserId);
+    if (!user?.avatar_version) throw new NotFoundException('Avatar not found');
+    return this.storage.get(`avatars/${targetUserId}.jpg`);
+  }
+
+  /** Phase 4C: publish the caller's E2EE public key (replaces the previous one). */
+  async setE2eeKey(userId: string, publicKey: string): Promise<void> {
+    await this.usersRepository.setE2eeKey(userId, publicKey);
+  }
+
+  /** Phase 4C: a key is only handed out to yourself or someone you share a conversation with. */
+  async getE2eeKey(requesterId: string, targetUserId: string): Promise<string | null> {
+    if (requesterId !== targetUserId && !(await this.usersRepository.sharesConversation(requesterId, targetUserId))) {
+      throw new NotFoundException('User not found');
+    }
+    return this.usersRepository.getE2eeKey(targetUserId);
+  }
 
   findOrCreateByPhone(phoneE164: string): Promise<UserRow> {
     return this.usersRepository.findOrCreateByPhone(phoneE164);
@@ -26,6 +71,10 @@ export class UsersService {
 
   findManyByIds(ids: string[]): Promise<UserRow[]> {
     return this.usersRepository.findManyByIds(ids);
+  }
+
+  findManyByPhones(phones: string[]): Promise<UserRow[]> {
+    return this.usersRepository.findManyByPhones(phones);
   }
 
   /**
@@ -52,6 +101,14 @@ export class UsersService {
       }
       throw err;
     }
+  }
+
+  getContactPrivacy(userId: string): Promise<boolean> {
+    return this.usersRepository.getContactPrivacy(userId);
+  }
+
+  setContactPrivacy(userId: string, discoverable: boolean): Promise<void> {
+    return this.usersRepository.setContactPrivacy(userId, discoverable);
   }
 
   updateNotificationPrivacyMode(userId: string, mode: NotificationPrivacyMode): Promise<void> {

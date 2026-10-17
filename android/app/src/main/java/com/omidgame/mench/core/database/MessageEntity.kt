@@ -51,6 +51,8 @@ data class MessageEntity(
     /** Non-null means this message was deleted — the row is kept (so history has no gap, matching the server's messages.deleted_at behavior) but body/attachment are no longer rendered. */
     val deletedAtEpochMillis: Long? = null,
     val forwardedFromMessageId: String? = null,
+    /** Set when this message is a reply — points at the serverId of the quoted message, within the same conversation. Null for a normal (non-reply) message. */
+    val replyToMessageId: String? = null,
     /**
      * Moshi-serialized `List<ReactionSummary>`, not a normalized child
      * table — reactions always arrive already-aggregated from the server
@@ -61,4 +63,12 @@ data class MessageEntity(
      * here rather than normalized.
      */
     val reactionsJson: String? = null,
+    /** Phase 1B: BlurHash of the attachment, decoded into a blurred placeholder while the thumbnail loads. */
+    val attachmentBlurHash: String? = null,
+
+    /**
+     * Phase 2A: voice-message waveform — base64 of ~48 amplitude bytes (see core.media.Waveform).
+     * Null for non-audio and for voice messages sent before this column existed.
+     */
+    val attachmentWaveform: String? = null,
 )

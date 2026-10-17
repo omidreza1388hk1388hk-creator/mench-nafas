@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: a white chat bubble (soft shadow + tail) holding a gradient heart.
+     Everything stays inside the 66dp safe zone of the 108dp canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- soft drop shadow -->
+    <path
+        android:fillColor="#33000000"
+        android:pathData="M36,27 H72 A16,16 0 0 1 88,43 V59 A16,16 0 0 1 72,75 H52 L38,91 L40,75 H36 A16,16 0 0 1 20,59 V43 A16,16 0 0 1 36,27 Z" />
+
+    <!-- bubble -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,24 H72 A16,16 0 0 1 88,40 V56 A16,16 0 0 1 72,72 H52 L38,88 L40,72 H36 A16,16 0 0 1 20,56 V40 A16,16 0 0 1 36,24 Z" />
+
+    <!-- heart with gradient -->
+    <path android:pathData="M54,61 C54,61 35,50 35,39 C35,33.5 39.5,29.5 45,29.5 C49,29.5 52,31.5 54,35 C56,31.5 59,29.5 63,29.5 C68.5,29.5 73,33.5 73,39 C73,50 54,61 54,61 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="40" android:startY="30"
+                android:endX="68" android:endY="60"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFF6B9A" />
+                <item android:offset="1.0" android:color="#FFC2185B" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- tiny highlight on the heart -->
+    <path
+        android:fillColor="#55FFFFFF"
+        android:pathData="M42,36 C42,33.5 44,32 46,32 C47,32 48,32.4 48.8,33.2 C46,32.8 43.6,34 42,36 Z" />
+</vector>

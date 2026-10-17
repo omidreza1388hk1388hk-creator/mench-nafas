@@ -2,9 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <!-- Phase 6 (calls). CAMERA/BLUETOOTH_CONNECT/POST_NOTIFICATIONS are
@@ -13,13 +15,20 @@
          respectively) — declaring them here only grants the *ability* to
          ask. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- google-webrtc's manifest merges in additional legacy Camera1/
          hardware.camera.* <uses-feature> entries; none of them are
          required="true" upstream, so no explicit override is needed here
@@ -31,20 +40,63 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Mench"
         android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- Lets Macrobenchmark / Perfetto profile the non-debuggable benchmark build from the shell. -->
+        <profileable android:shell="true" tools:targetApi="29" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.Mench.Splash"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Phase 1C: custom-scheme deep links: mench://invite/CODE, mench://chat/ID, mench://new, mench://find -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mench" />
+            </intent-filter>
+
+            <!-- App Links: https://mench.app/i/CODE. autoVerify needs /.well-known/assetlinks.json on the domain. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="mench.app" android:pathPrefix="/i/" />
+            </intent-filter>
+
+            <!-- Share to MENCH from other apps (text and a single image). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Quick Settings tile: "new chat". -->
+        <service
+            android:name=".core.notifications.NewMessageTileService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/tile_new_chat"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <!-- Phase 6. Firebase's default FirebaseMessagingService priority
              is fine as-is; this just registers MENCH's own subclass to
@@ -56,6 +108,77 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Background WebSocket so notifications arrive without Firebase (see the class doc). -->
+        <service
+            android:name=".core.notifications.RealtimeForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the private messenger's realtime connection open to deliver messages and notifications without Firebase push." />
+        </service>
+
+        <receiver
+            android:name=".core.notifications.UsWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/us_widget_info" />
+        </receiver>
+
+        <!-- Phase 1C completion: Glance widgets (couple counter, partner quick messages). -->
+        <receiver
+            android:name=".core.widgets.CoupleCounterWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_counter_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/couple_counter_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".core.widgets.PartnerQuickWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_quick_description">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/partner_quick_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".core.notifications.QuickReplyReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.notifications.MarkReadReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.notifications.ReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.notifications.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".feature.chat.service.LiveLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <service
             android:name=".feature.calls.service.CallForegroundService"
@@ -74,6 +197,16 @@
              other libraries' androidx-startup entries are unaffected).
              MenchApplication.Configuration.Provider takes over
              initialization instead — see that file. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

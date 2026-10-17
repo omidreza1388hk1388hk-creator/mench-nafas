@@ -1,6 +1,8 @@
 package com.omidgame.mench.feature.settings.domain
 
 data class Profile(
+    val id: String = "",
+    val avatarVersion: Long? = null,
     val phoneE164: String,
     val displayName: String?,
     val username: String?,
@@ -20,6 +22,9 @@ sealed interface ProfileUpdateResult {
 
 interface ProfileRepository {
     suspend fun getProfile(): Profile?
+
+    /** Uploads a new profile photo (downscaled + JPEG-compressed on the device first). Returns the refreshed profile, or null on failure. */
+    suspend fun uploadAvatar(imageUri: String): Profile?
 
     suspend fun updateProfile(
         displayName: String?,

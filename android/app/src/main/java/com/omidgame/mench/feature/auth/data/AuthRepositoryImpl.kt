@@ -8,12 +8,14 @@ import com.omidgame.mench.core.notifications.PushTokenRegistrar
 import com.omidgame.mench.core.network.RefreshTokenBody
 import com.omidgame.mench.core.network.RequestOtpBody
 import com.omidgame.mench.core.network.VerifyOtpBody
+import com.omidgame.mench.core.network.VerifyTwoStepBody
 import com.omidgame.mench.core.security.StoredTokens
 import com.omidgame.mench.core.security.TokenStore
 import com.omidgame.mench.feature.auth.domain.AuthFailureReason
 import com.omidgame.mench.feature.auth.domain.AuthRepository
 import com.omidgame.mench.feature.auth.domain.AuthResult
 import com.omidgame.mench.feature.auth.domain.OtpChallenge
+import com.omidgame.mench.feature.auth.domain.TwoStepChallenge
 import com.omidgame.mench.feature.security.domain.AppLockRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,10 +40,10 @@ class AuthRepositoryImpl @Inject constructor(
             } catch (e: IOException) {
                 AuthResult.Failure(AuthFailureReason.NETWORK_UNAVAILABLE)
             } catch (e: HttpException) {
-                if (e.code() == 429) {
-                    AuthResult.Failure(AuthFailureReason.RATE_LIMITED)
-                } else {
-                    AuthResult.Failure(AuthFailureReason.UNKNOWN)
+                when (e.code()) {
+                    429 -> AuthResult.Failure(AuthFailureReason.RATE_LIMITED)
+                    400 -> AuthResult.Failure(AuthFailureReason.INVALID_PHONE)
+                    else -> AuthResult.Failure(AuthFailureReason.UNKNOWN)
                 }
             }
         }
@@ -60,22 +62,18 @@ class AuthRepositoryImpl @Inject constructor(
                     deviceName = deviceName,
                 ),
             )
-            tokenStore.save(StoredTokens(response.accessToken, response.refreshToken, response.deviceId))
-            userDao.upsert(
-                UserEntity(
-                    id = response.userId,
-                    phoneE164 = challenge.phone,
-                    displayName = null,
-                    username = null,
-                    avatarUrl = null,
-                    updatedAtEpochMillis = System.currentTimeMillis(),
-                ),
-            )
-            // Fire-and-forget (Phase 6): registration failure here must
-            // never fail sign-in itself — see PushTokenRegistrar's own
-            // doc comment for why every failure path inside it is
-            // swallowed-and-logged rather than thrown.
-            pushTokenRegistrar.registerCurrentToken()
+            val twoStepTicket = response.ticket
+            if (response.twoStepRequired == true && twoStepTicket != null) {
+                return@withContext AuthResult.TwoStepRequired(TwoStepChallenge(twoStepTicket, response.hint, challenge.phone))
+            }
+            val accessToken = response.accessToken
+            val refreshToken = response.refreshToken
+            val userId = response.userId
+            val deviceId = response.deviceId
+            if (accessToken == null || refreshToken == null || userId == null || deviceId == null) {
+                return@withContext AuthResult.Failure(AuthFailureReason.UNKNOWN)
+            }
+            finishSignIn(accessToken, refreshToken, userId, deviceId, challenge.phone)
             AuthResult.Success(Unit)
         } catch (e: IOException) {
             AuthResult.Failure(AuthFailureReason.NETWORK_UNAVAILABLE)
@@ -86,6 +84,40 @@ class AuthRepositoryImpl @Inject constructor(
                 else -> AuthResult.Failure(AuthFailureReason.UNKNOWN)
             }
         }
+    }
+
+    override suspend fun verifyTwoStep(challenge: TwoStepChallenge, password: String): AuthResult<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val response = authApi.verifyTwoStep(VerifyTwoStepBody(challenge.ticket, password))
+                finishSignIn(response.accessToken, response.refreshToken, response.userId, response.deviceId, challenge.phone)
+                AuthResult.Success(Unit)
+            } catch (e: IOException) {
+                AuthResult.Failure(AuthFailureReason.NETWORK_UNAVAILABLE)
+            } catch (e: HttpException) {
+                when (e.code()) {
+                    401 -> AuthResult.Failure(AuthFailureReason.WRONG_PASSWORD)
+                    429 -> AuthResult.Failure(AuthFailureReason.RATE_LIMITED)
+                    else -> AuthResult.Failure(AuthFailureReason.UNKNOWN)
+                }
+            }
+        }
+
+    /** Shared tail of both sign-in paths (plain SMS code, and SMS code + two-step password). */
+    private suspend fun finishSignIn(accessToken: String, refreshToken: String, userId: String, deviceId: String, phone: String) {
+        tokenStore.save(StoredTokens(accessToken, refreshToken, deviceId))
+        userDao.upsert(
+            UserEntity(
+                id = userId,
+                phoneE164 = phone,
+                displayName = null,
+                username = null,
+                avatarUrl = null,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            ),
+        )
+        // Fire-and-forget: a push-registration failure must never fail sign-in (see PushTokenRegistrar).
+        pushTokenRegistrar.registerCurrentToken()
     }
 
     override suspend fun isSignedIn(): Boolean = tokenStore.read() != null

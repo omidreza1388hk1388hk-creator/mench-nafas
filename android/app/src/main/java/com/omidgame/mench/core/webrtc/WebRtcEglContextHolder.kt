@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class WebRtcEglContextHolder @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
 ) {
     val eglBase: EglBase = EglBase.create()
 
@@ -33,7 +33,15 @@ class WebRtcEglContextHolder @Inject constructor(
         val encoderFactory = DefaultVideoEncoderFactory(eglBase.eglBaseContext, /* enableIntelVp8Encoder= */ true, /* enableH264HighProfile= */ true)
         val decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
 
+        // Phase 2B: prefer the phone's hardware echo canceller / noise suppressor when it has one
+        // (the software ones in WebRTC still run when it does not).
+        val audioDeviceModule = org.webrtc.audio.JavaAudioDeviceModule.builder(context)
+            .setUseHardwareAcousticEchoCanceler(true)
+            .setUseHardwareNoiseSuppressor(true)
+            .createAudioDeviceModule()
+
         PeerConnectionFactory.builder()
+            .setAudioDeviceModule(audioDeviceModule)
             .setVideoEncoderFactory(encoderFactory)
             .setVideoDecoderFactory(decoderFactory)
             .createPeerConnectionFactory()

@@ -1,5 +1,8 @@
 package com.omidgame.mench.feature.settings.presentation
 
+import androidx.compose.foundation.background
+import com.omidgame.mench.core.ui.theme.MenchBrand
+import com.omidgame.mench.core.ui.theme.menchTopBarColors
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +36,8 @@ fun NotificationPrivacyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.background(MenchBrand.heroBrush()),
+                colors = menchTopBarColors(),
                 title = { Text(stringResource(R.string.settings_notification_privacy_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -80,6 +85,7 @@ fun NotificationPrivacyScreen(
                         selected = state.selected == NotificationPrivacyMode.HIDE_CONTENT,
                         onClick = { onSelect(NotificationPrivacyMode.HIDE_CONTENT) },
                     )
+                    QuietHoursSection()
                 }
             }
         }

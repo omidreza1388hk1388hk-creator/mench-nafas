@@ -5,9 +5,9 @@ import javax.inject.Inject
 class SendMessageUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
 ) {
-    suspend operator fun invoke(conversationId: String, body: String) {
+    suspend operator fun invoke(conversationId: String, body: String, replyToMessageId: String? = null, silent: Boolean = false) {
         val trimmed = body.trim()
         if (trimmed.isEmpty()) return
-        chatRepository.sendMessage(conversationId, trimmed)
+        chatRepository.sendMessage(conversationId, trimmed, replyToMessageId, silent)
     }
 }

@@ -7,5 +7,9 @@
     <color name="mench_ink_50">#F7F7FA</color>
     <color name="mench_accent">#5B6CFF</color>
     <color name="mench_accent_dark">#8891FF</color>
-    <color name="ic_launcher_background">#000000</color>
+    <!-- Matches MenchAccent (core/ui/theme/Color.kt) so the launcher icon
+         and the in-app indigo accent read as the same brand color. -->
+    <color name="ic_launcher_background">#D6336C</color>
+    <!-- Mid-stop of the AnimatedSplash gradient, so the hand-off from the system splash is seamless. -->
+    <color name="mench_splash_background">#A81D56</color>
 </resources>

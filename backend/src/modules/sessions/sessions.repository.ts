@@ -63,6 +63,22 @@ export class SessionsRepository {
     );
   }
 
+  /** Used by DevicesController's "log out this device" — a device revoke alone would stop new refreshes, but any session already issued for it would otherwise keep working until it naturally expired. */
+  async revokeAllForDevice(deviceId: string, userId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE sessions SET revoked_at = now() WHERE device_id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+      [deviceId, userId],
+    );
+  }
+
+  /** Revokes every session of the user except those belonging to [keepDeviceId] (the device making the request). */
+  async revokeAllExceptDevice(userId: string, keepDeviceId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND device_id <> $2 AND revoked_at IS NULL`,
+      [userId, keepDeviceId],
+    );
+  }
+
   async listActiveForUser(userId: string): Promise<SessionRow[]> {
     const { rows } = await this.pool.query<SessionRow>(
       `SELECT * FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`,

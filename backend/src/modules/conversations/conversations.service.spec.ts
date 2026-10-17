@@ -39,6 +39,7 @@ describe('ConversationsService', () => {
       isGroup: jest.fn(),
       findById: jest.fn(),
       listMemberIds: jest.fn(),
+      getGroupSettings: jest.fn().mockResolvedValue(null), // null = defaults (everyone may do everything)
     } as unknown as jest.Mocked<ConversationsRepository>;
 
     users = {
@@ -117,6 +118,13 @@ describe('ConversationsService', () => {
       otherUserId: userB,
       otherUserPhoneE164: '+15559876543',
       otherUserDisplayName: 'Bee',
+      isMuted: false,
+      isPinned: false,
+      isArchived: false,
+      togetherSince: null,
+      nextMeetDate: null,
+      otherUserAvatarVersion: null,
+      pinnedMessageId: null,
     });
     expect(repo.createDirect).toHaveBeenCalledWith(userA, userB);
   });
@@ -171,6 +179,33 @@ describe('ConversationsService', () => {
     expect(repo.createGroup).toHaveBeenCalledWith(userA, 'Trip planning', [userB]);
   });
 
+  it('an admin can remove a plain member but not another admin or the owner', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.isGroup.mockResolvedValue(true);
+    repo.listMemberIds.mockResolvedValue([userA, userB]);
+    repo.getRole.mockResolvedValueOnce('admin').mockResolvedValueOnce('member');
+    await service.removeMember('conv-3', userA, userB);
+    expect(repo.removeMember).toHaveBeenCalledWith('conv-3', userB);
+
+    repo.removeMember.mockClear();
+    repo.getRole.mockResolvedValueOnce('admin').mockResolvedValueOnce('admin');
+    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(ForbiddenException);
+    repo.getRole.mockResolvedValueOnce('admin').mockResolvedValueOnce('owner');
+    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.removeMember).not.toHaveBeenCalled();
+  });
+
+  it('adding members and renaming respect the group permissions', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.isGroup.mockResolvedValue(true);
+    repo.getGroupSettings.mockResolvedValue({ sendMessages: 'all', addMembers: 'admins', editInfo: 'admins', pinMessages: 'all', slowModeSeconds: 0 });
+    repo.getRole.mockResolvedValue('member');
+    await expect(service.addMembers('conv-3', userA, [userB])).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.renameGroup('conv-3', userA, 'New')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.addMembers).not.toHaveBeenCalled();
+    expect(repo.updateTitle).not.toHaveBeenCalled();
+  });
+
   it('removeMember allows leaving (removing yourself) without an owner check', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
@@ -203,6 +238,7 @@ describe('ConversationsService', () => {
   it('addMembers broadcasts group.member_added to the full post-add member list, and conversation.added to only the new member', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
+    repo.getRole.mockResolvedValue('member'); // default group settings: any member may add people
     users.findManyByIds.mockResolvedValue([{ id: userB } as any]);
     repo.listMemberIds.mockResolvedValue([userA, userB]);
     const conversationRow: ConversationRow = {
@@ -237,7 +273,7 @@ describe('ConversationsService', () => {
   it('removeMember broadcasts to the member list from BEFORE the removal, so the removed user still gets it', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
-    repo.getRole.mockResolvedValue('owner');
+    repo.getRole.mockResolvedValueOnce('owner').mockResolvedValueOnce('member'); // actor, then target
     repo.listMemberIds.mockResolvedValue([userA, userB]); // snapshot taken before removeMember() deletes the row
 
     await service.removeMember('conv-3', userA, userB);
@@ -264,6 +300,7 @@ describe('ConversationsService', () => {
   it('renameGroup broadcasts group.renamed to every current member after the write commits', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
+    repo.getRole.mockResolvedValue('member'); // default group settings: any member may rename
     repo.listMemberIds.mockResolvedValue([userA, userB]);
 
     await service.renameGroup('conv-3', userA, '  New Title  ');
@@ -273,5 +310,83 @@ describe('ConversationsService', () => {
       [userA, userB],
       { type: 'group.renamed', conversationId: 'conv-3', title: 'New Title', renamedBy: userA },
     );
+  });
+
+  it('sendHeartbeat broadcasts a live heartbeat to the partner only, with no push, and reports whether they were online', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.isGroup.mockResolvedValue(false);
+    repo.listOtherMemberIds.mockResolvedValue([userB]);
+    broadcaster.isUserConnected.mockReturnValue(true);
+
+    const result = await service.sendHeartbeat('conv-1', userA, 4000);
+
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
+      [userB],
+      { type: 'heartbeat', conversationId: 'conv-1', from: userA, durationMs: 4000 },
+    );
+    expect(result).toEqual({ delivered: true });
+    expect(notifications.notifyNewMessage).not.toHaveBeenCalled();
+  });
+
+  it('sendHeartbeat reports delivered=false when the partner has no live socket', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.isGroup.mockResolvedValue(false);
+    repo.listOtherMemberIds.mockResolvedValue([userB]);
+    broadcaster.isUserConnected.mockReturnValue(false);
+
+    await expect(service.sendHeartbeat('conv-1', userA, 2000)).resolves.toEqual({ delivered: false });
+  });
+
+  it('sendHeartbeat is rejected in a group conversation', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.isGroup.mockResolvedValue(true);
+
+    await expect(service.sendHeartbeat('conv-3', userA, 2000)).rejects.toBeInstanceOf(BadRequestException);
+    expect(broadcaster.broadcastToUsers).not.toHaveBeenCalled();
+  });
+
+  it('sendScreenEffect broadcasts to the other members only, and rejects non-members', async () => {
+    repo.isMember.mockResolvedValue(true);
+    repo.listOtherMemberIds.mockResolvedValue([userB]);
+
+    await service.sendScreenEffect('conv-1', userA, 'confetti');
+
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
+      [userB],
+      { type: 'screen_effect', conversationId: 'conv-1', from: userA, effect: 'confetti' },
+    );
+
+    repo.isMember.mockResolvedValue(false);
+    await expect(service.sendScreenEffect('conv-9', userA, 'hearts')).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ConversationsService.getOrCreateSaved', () => {
+  const row = { id: 'saved-1', kind: 'saved', title: null, created_by: 'u1', created_at: new Date('2026-10-07T00:00:00Z'), last_message_at: null };
+  const make = (repo: Record<string, jest.Mock>) => {
+    const service: any = Object.create(ConversationsService.prototype);
+    service.conversationsRepository = repo;
+    return service as ConversationsService;
+  };
+
+  it('returns the existing saved conversation without creating another', async () => {
+    const repo = { findSavedFor: jest.fn().mockResolvedValue(row), createSaved: jest.fn() };
+    const dto = await make(repo).getOrCreateSaved('u1');
+    expect(dto).toMatchObject({ id: 'saved-1', kind: 'saved', otherUserId: null });
+    expect(repo.createSaved).not.toHaveBeenCalled();
+  });
+
+  it('creates it on first use', async () => {
+    const repo = { findSavedFor: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(row), createSaved: jest.fn().mockResolvedValue(row) };
+    await expect(make(repo).getOrCreateSaved('u1')).resolves.toMatchObject({ id: 'saved-1' });
+    expect(repo.createSaved).toHaveBeenCalledWith('u1');
+  });
+
+  it('survives a lost create race by re-reading the winner', async () => {
+    const repo = {
+      findSavedFor: jest.fn().mockResolvedValueOnce(null).mockResolvedValue(row),
+      createSaved: jest.fn().mockRejectedValue(new Error('duplicate key')),
+    };
+    await expect(make(repo).getOrCreateSaved('u1')).resolves.toMatchObject({ id: 'saved-1' });
   });
 });

@@ -16,7 +16,11 @@ export interface MessageAttachmentSummary {
   widthPx: number | null;
   heightPx: number | null;
   durationMs: number | null;
+  /** Audio only — base64 amplitude samples, null when absent (older clients). */
+  waveform: string | null;
   hasThumbnail: boolean;
+  /** Optional so older fixtures/clients keep working; see AttachmentDto.blurHash. */
+  blurHash?: string | null;
 }
 
 /**
@@ -52,6 +56,8 @@ export interface MessageDto {
   deletedAt: string | null;
   /** Set only on a message created via MessagesService.forward — points at the original message it was forwarded from. */
   forwardedFromMessageId: string | null;
+  /** Set when this message was sent as a reply — points at the quoted message, within the same conversation (validated server-side in MessagesService.send). */
+  replyToMessageId: string | null;
   reactions: ReactionSummary[];
 }
 
@@ -77,13 +83,79 @@ export interface CallIncomingSummary {
   callerPhoneE164: string;
 }
 
+/** Phase 2A — a poll (question, options and who voted for what). Sent whole on every change; the client replaces its copy. */
+export interface PollEventDto {
+  id: string;
+  conversationId: string;
+  creatorId: string;
+  question: string;
+  multiple: boolean;
+  closed: boolean;
+  createdAt: string;
+  options: { id: string; text: string; voterIds: string[] }[];
+}
+
 export type ServerToClientEvent =
   | { type: 'message.created'; message: MessageDto }
+  /** Phase 2A — someone voted in / closed a poll in this conversation. */
+  | { type: 'poll.updated'; conversationId: string; poll: PollEventDto }
   /** Body edit only — deletion has its own, cheaper event below rather than re-sending the whole (now-empty) message. */
   | { type: 'message.updated'; message: MessageDto }
   | { type: 'message.deleted'; conversationId: string; messageId: string; deletedAt: string }
   | { type: 'reaction.updated'; conversationId: string; messageId: string; reactions: ReactionSummary[] }
+  | { type: 'message.delivered'; conversationId: string; userId: string; lastDeliveredSequence: number }
   | { type: 'message.read'; conversationId: string; userId: string; lastReadSequence: number }
+  /** Phase 9 — a shared 'us' date changed; sent to every member so both phones show the same counter. */
+  | { type: 'us.updated'; conversationId: string; togetherSince: string | null; nextMeetDate: string | null }
+  /** Phase 11 — the pinned message of a conversation changed (messageId null = unpinned). */
+  | { type: 'pin.changed'; conversationId: string; messageId: string | null }
+  /** Phase 4C — the disappearing-messages timer of a conversation changed (seconds null = off). */
+  | { type: 'conversation.disappearing_changed'; conversationId: string; seconds: number | null; changedBy: string }
+  /** Phase 11 — the partner answered today's question. */
+  | { type: 'question.answered'; conversationId: string }
+  /** Phase 11 — the shared wishlist changed. */
+  | { type: 'wishlist.changed'; conversationId: string }
+  /** Phase 9 — the partner set today's mood. */
+  | { type: 'mood.changed'; conversationId: string; userId: string; emoji: string; text: string | null; setAt: string }
+  /** Phase 9 — the shared memories list changed (added/removed by the partner); reload it. */
+  | { type: 'memory.changed'; conversationId: string }
+  /** Phase 9 — a hug or kiss from the partner; never persisted, the client plays an animation + vibration. */
+  | { type: 'affection'; conversationId: string; from: string; kind: 'hug' | 'kiss' }
+  /** Phase 9 — a new "open when…" letter was written to the recipient (body stays sealed until they open it). */
+  | { type: 'letter.received'; conversationId: string; letterId: string }
+  /** Phase 9 — the recipient opened a letter you wrote. */
+  | { type: 'letter.opened'; conversationId: string; letterId: string }
+  /** Phase 9 — the 'I miss you' tap. Never persisted; the receiving client plays a heart animation + heartbeat vibration. */
+  | { type: 'miss_you'; conversationId: string; from: string }
+  /** Phase 3A — a live heartbeat from the partner (press-and-hold heart). Never persisted and never pushed: it only means something while the receiver is online. The client vibrates in rhythm and plays a full-screen heartbeat for durationMs. */
+  /** Phase 3A — the shared counters list changed (added, bumped or removed by the partner); reload it. */
+  | { type: 'counter.changed'; conversationId: string }
+  /** Phase 3A — the shared drawing canvas changed (strokes added or cleared by the partner); reload it. */
+  | { type: 'canvas.changed'; conversationId: string }
+  /** Phase 3B — stories in this conversation changed (new, deleted, or your story was seen); reload them. */
+  | { type: 'story.changed'; conversationId: string }
+  /** Phase 3 — the couple's encrypted vault changed (a note was added or deleted by the partner); reload it. */
+  | { type: 'vault.changed'; conversationId: string }
+  /** Phase 3A — a quiz was added or deleted, or your quiz was answered; reload the list. */
+  | { type: 'quiz.changed'; conversationId: string }
+  /** Phase 3 — the shared album changed (photo added, reacted to, or deleted by the partner); reload it. */
+  | { type: 'album.changed'; conversationId: string }
+  | { type: 'heartbeat'; conversationId: string; from: string; durationMs: number }
+  /** Phase 3 — Together mode: the partner started/stopped a shared playback or moved/paused/resumed it. Relay only. */
+  | {
+      type: 'together';
+      conversationId: string;
+      from: string;
+      kind: 'start' | 'sync' | 'stop';
+      attachmentId: string | null;
+      positionMs: number;
+      playing: boolean;
+      sentAt: number;
+    }
+  /** Phase 3A — a full-screen effect the sender picked by hand (long-press send). Ephemeral like miss_you: words that trigger an effect are detected on the receiving phone from the message text itself. */
+  | { type: 'screen_effect'; conversationId: string; from: string; effect: string }
+  /** Online/offline transition of someone who shares a conversation with the recipient; also sent once per co-member as a snapshot right after a socket connects. lastSeenAt is null if never seen. */
+  | { type: 'presence.changed'; userId: string; online: boolean; lastSeenAt: string | null }
   | { type: 'typing.started'; conversationId: string; userId: string }
   | { type: 'typing.stopped'; conversationId: string; userId: string }
   /**
@@ -120,7 +192,11 @@ export type ServerToClientEvent =
       sdpMLineIndex: number | null;
     }
   /** Fast-path relay only — REST POST /calls/:id/end (see CallsController) remains the authoritative state transition; this just lets the other client's UI tear down immediately instead of waiting on that request's own broadcast. */
-  | { type: 'call.hangup'; callId: string; from: string };
+  | { type: 'call.hangup'; callId: string; from: string }
+  /** Phase 2B — in-call text chat line from the other participant (relayed, never stored). */
+  | { type: 'call.chat'; callId: string; from: string; text: string; sentAt: string }
+  /** Phase 2B — an emoji reaction during the call. */
+  | { type: 'call.reaction'; callId: string; from: string; emoji: string };
 
 export type ClientToServerEvent =
   | { type: 'typing.started'; conversationId: string }
@@ -134,4 +210,6 @@ export type ClientToServerEvent =
       sdpMid: string | null;
       sdpMLineIndex: number | null;
     }
-  | { type: 'call.hangup'; callId: string };
+  | { type: 'call.hangup'; callId: string }
+  | { type: 'call.chat'; callId: string; text: string }
+  | { type: 'call.reaction'; callId: string; emoji: string };

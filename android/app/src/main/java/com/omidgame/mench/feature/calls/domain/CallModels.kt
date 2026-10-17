@@ -58,7 +58,19 @@ sealed interface CallSignalEvent {
         val sdpMLineIndex: Int?,
     ) : CallSignalEvent
     data class RemoteHangup(val callId: String) : CallSignalEvent
+    /** Phase 2B */
+    data class RemoteChat(val callId: String, val text: String, val sentAtIso: String) : CallSignalEvent
+    data class RemoteReaction(val callId: String, val emoji: String) : CallSignalEvent
 }
+
+/** Phase 2B — one line of the in-call chat (kept only in memory for the duration of the call). */
+data class CallChatLine(val fromMe: Boolean, val text: String, val atMillis: Long)
+
+/** Phase 2B — an emoji reaction to show floating up the screen; [id] makes each one distinct for the UI. */
+data class CallReaction(val id: Long, val emoji: String, val fromMe: Boolean)
+
+/** The reactions offered in the call (must match the backend's CALL_REACTIONS list). */
+val CALL_REACTION_EMOJI = listOf("\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDC4D", "\uD83D\uDD25", "\uD83D\uDE18", "\uD83E\uDD70", "\uD83D\uDC4F")
 
 /** Local (not-yet-sent-to-the-network-layer) ICE candidate shape — kept independent of org.webrtc.IceCandidate so the domain/data layers don't import the WebRTC SDK directly (only core/webrtc does). */
 data class LocalIceCandidate(val sdpMid: String?, val sdpMLineIndex: Int, val candidate: String)

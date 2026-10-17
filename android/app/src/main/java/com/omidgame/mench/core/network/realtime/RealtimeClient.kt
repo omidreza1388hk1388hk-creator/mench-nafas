@@ -46,6 +46,14 @@ class RealtimeClient @Inject constructor(
     private var reconnectJob: Job? = null
     private var currentAccessToken: String? = null
     private var manuallyClosed = false
+
+    /**
+     * Optional hook returning a FRESH access token. Reconnects used to reuse
+     * the token from the original connect(), which silently expires — after
+     * that every reconnect was rejected forever. The background service sets
+     * this so each reconnect first picks up the current (refreshed) token.
+     */
+    @Volatile var accessTokenProvider: (suspend () -> String?)? = null
     private var attempt = 0
 
     private val _events = MutableSharedFlow<ServerToClientEvent>(extraBufferCapacity = 64)
@@ -59,6 +67,22 @@ class RealtimeClient @Inject constructor(
         currentAccessToken = accessToken
         attempt = 0
         openSocket()
+    }
+
+    /**
+     * Phase 1B: skip the remaining backoff and reconnect right now (used when the device regains
+     * network). No-op if the user logged out or a socket is already open/connecting.
+     */
+    fun retryNow() {
+        if (manuallyClosed || currentAccessToken == null) return
+        val latest = _connectionState.replayCache.lastOrNull()
+        if (latest == ConnectionState.Connected || latest == ConnectionState.Connecting) return
+        reconnectJob?.cancel()
+        attempt = 0
+        reconnectJob = scope.launch {
+            accessTokenProvider?.let { provider -> runCatching { provider() }.getOrNull()?.let { currentAccessToken = it } }
+            if (!manuallyClosed) openSocket()
+        }
     }
 
     fun disconnect() {
@@ -112,13 +136,17 @@ class RealtimeClient @Inject constructor(
         reconnectJob = scope.launch {
             attempt++
             // Exponential backoff, capped at 30s: 1s, 2s, 4s, 8s, 16s, 30s, 30s...
-            val delayMs = min(30_000L, (1000L * 2.0.pow(attempt - 1)).toLong())
+            val base = min(30_000L, (1000L * 2.0.pow(attempt - 1)).toLong())
+            // Full-ish jitter (75%..125%) so a server restart does not get every client at once.
+            val delayMs = (base * (0.75 + Math.random() * 0.5)).toLong()
             delay(delayMs)
+            accessTokenProvider?.let { provider -> runCatching { provider() }.getOrNull()?.let { currentAccessToken = it } }
             if (!manuallyClosed) openSocket()
         }
     }
 
-    /** BuildConfig.API_BASE_URL is like "http://10.0.2.2:3000/api/v1/" — the WS endpoint is host-relative, not under /api/v1 (see main.ts). */
+    /** BuildConfig.API_BASE_URL points at /api/v1/. The realtime gateway is
+     * mounted at the host-level /ws, not /api/v1/ws (see backend main.ts). */
     private fun apiBaseUrlToWsUrl(apiBaseUrl: String): String {
         val httpBase = apiBaseUrl.substringBefore("/api/v1")
         return httpBase.replaceFirst("http://", "ws://").replaceFirst("https://", "wss://") + "/"

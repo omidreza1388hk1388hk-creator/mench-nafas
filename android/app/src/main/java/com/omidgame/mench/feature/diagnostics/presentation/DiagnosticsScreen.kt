@@ -1,5 +1,8 @@
 package com.omidgame.mench.feature.diagnostics.presentation
 
+import androidx.compose.foundation.background
+import com.omidgame.mench.core.ui.theme.MenchBrand
+import com.omidgame.mench.core.ui.theme.menchTopBarColors
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +43,8 @@ fun DiagnosticsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.background(MenchBrand.heroBrush()),
+                colors = menchTopBarColors(),
                 title = { Text(stringResource(R.string.diagnostics_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {

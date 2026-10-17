@@ -4,12 +4,14 @@ import com.omidgame.mench.BuildConfig
 import com.omidgame.mench.core.network.AuthApi
 import com.omidgame.mench.core.network.AuthenticatedAuthApi
 import com.omidgame.mench.core.network.CallsApi
+import com.omidgame.mench.core.network.DevicesApi
 import com.omidgame.mench.core.network.AuthHeaderInterceptor
 import com.omidgame.mench.core.network.TokenAuthenticator
 import com.omidgame.mench.core.network.UnauthenticatedClient
 import com.omidgame.mench.core.network.AuthenticatedClient
 import com.omidgame.mench.core.network.RealtimeSocketClient
 import com.omidgame.mench.core.network.ChatApi
+import com.omidgame.mench.core.network.GifApi
 import com.omidgame.mench.core.network.UsersApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.KotlinJsonAdapterFactory
@@ -60,8 +62,11 @@ object NetworkModule {
     fun provideAuthenticatedClient(
         authHeaderInterceptor: AuthHeaderInterceptor,
         tokenAuthenticator: TokenAuthenticator,
+        usageTracker: com.omidgame.mench.core.network.UsageTracker,
     ): OkHttpClient = baseClientBuilder()
         .addInterceptor(authHeaderInterceptor)
+        // Phase 1D.5: counts bytes per day / connection type for the Data dashboard.
+        .addInterceptor(usageTracker)
         .authenticator(tokenAuthenticator)
         .build()
 
@@ -91,6 +96,20 @@ object NetworkModule {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(ChatApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGifApi(
+        @AuthenticatedClient client: OkHttpClient,
+        moshi: Moshi,
+    ): GifApi {
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(GifApi::class.java)
     }
 
     @RealtimeSocketClient
@@ -142,5 +161,19 @@ object NetworkModule {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(CallsApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDevicesApi(
+        @AuthenticatedClient client: OkHttpClient,
+        moshi: Moshi,
+    ): DevicesApi {
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(DevicesApi::class.java)
     }
 }

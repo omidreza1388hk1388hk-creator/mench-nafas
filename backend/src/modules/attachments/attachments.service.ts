@@ -12,6 +12,21 @@ const ALLOWED_VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/webm', 'video/3gpp
 const THUMBNAIL_MAX_DIMENSION_PX = 480;
 const MAX_VOICE_DURATION_MS = 10 * 60 * 1000; // 10 minutes — a sanity cap, not a product decision carved in stone
 const MAX_VIDEO_DURATION_MS = 5 * 60 * 1000; // 5 minutes — same reasoning
+const WAVEFORM_MIN_SAMPLES = 8;
+const WAVEFORM_MAX_SAMPLES = 128;
+
+/**
+ * Returns the canonical (re-encoded) base64 for a valid waveform, or null when
+ * the value is absent or malformed. A bad waveform never fails the upload — it
+ * is cosmetic, so the voice message is still delivered and the client simply
+ * draws its fallback bars.
+ */
+export function normalizeWaveform(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length < WAVEFORM_MIN_SAMPLES || bytes.length > WAVEFORM_MAX_SAMPLES) return null;
+  return bytes.toString('base64');
+}
 
 export interface UploadAttachmentInput {
   uploaderId: string;
@@ -31,6 +46,8 @@ export interface UploadAttachmentInput {
   thumbnailBuffer: Buffer | null;
   clientReportedWidthPx: number | null;
   clientReportedHeightPx: number | null;
+  /** Audio only — base64 amplitude samples (see normalizeWaveform). Ignored for every other kind. */
+  waveformBase64?: string | null;
 }
 
 @Injectable()
@@ -92,8 +109,10 @@ export class AttachmentsService {
     let widthPx: number | null = null;
     let heightPx: number | null = null;
     let thumbnailStorageKey: string | null = null;
+    let blurHash: string | null = null;
 
     if (isImage) {
+      blurHash = await this.computeBlurHash(input.buffer);
       const metadata = await sharp(input.buffer).metadata();
       widthPx = metadata.width ?? null;
       heightPx = metadata.height ?? null;
@@ -113,6 +132,7 @@ export class AttachmentsService {
       heightPx = input.clientReportedHeightPx;
 
       if (input.thumbnailBuffer && input.thumbnailBuffer.length > 0) {
+        blurHash = await this.computeBlurHash(input.thumbnailBuffer);
         const resizedThumbnail = await sharp(input.thumbnailBuffer)
           .resize(THUMBNAIL_MAX_DIMENSION_PX, THUMBNAIL_MAX_DIMENSION_PX, { fit: 'inside', withoutEnlargement: true })
           .webp({ quality: 70 })
@@ -143,7 +163,31 @@ export class AttachmentsService {
       widthPx,
       heightPx,
       durationMs,
+      blurHash,
+      waveform: isAudio ? normalizeWaveform(input.waveformBase64) : null,
     });
+  }
+
+  /**
+   * BlurHash (4x3 components) of a 32px version of the image. Best-effort: any failure (corrupt image, missing
+   * optional dependency) just means no placeholder, never a failed upload.
+   */
+  private async computeBlurHash(source: Buffer): Promise<string | null> {
+    try {
+      const { encode } = await import('blurhash');
+      const { data, info } = await sharp(source)
+        .resize(32, 32, { fit: 'inside' })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      return encode(new Uint8ClampedArray(data), info.width, info.height, 4, 3);
+    } catch {
+      return null;
+    }
+  }
+
+  consumeViewOnce(id: string): Promise<boolean> {
+    return this.attachmentsRepository.consumeViewOnce(id);
   }
 
   findById(id: string): Promise<AttachmentRow | null> {

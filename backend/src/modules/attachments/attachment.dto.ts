@@ -11,7 +11,11 @@ export interface AttachmentDto {
   widthPx: number | null;
   heightPx: number | null;
   durationMs: number | null;
+  /** Audio only: base64 amplitude samples (one byte each), null when none was sent. */
+  waveform: string | null;
   hasThumbnail: boolean;
+  /** Tiny placeholder string the client decodes into a blurred preview while the real thumbnail loads. */
+  blurHash: string | null;
   createdAt: string;
 }
 
@@ -30,7 +34,9 @@ export function toAttachmentDto(row: AttachmentRow): AttachmentDto {
     widthPx: row.width_px,
     heightPx: row.height_px,
     durationMs: row.duration_ms,
+    waveform: row.waveform ?? null,
     hasThumbnail: row.thumbnail_storage_key !== null,
+    blurHash: row.blur_hash ?? null,
     createdAt: row.created_at.toISOString(),
   };
 }

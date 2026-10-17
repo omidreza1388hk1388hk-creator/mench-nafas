@@ -6,6 +6,8 @@ import com.omidgame.mench.feature.auth.domain.AuthFailureReason
 import com.omidgame.mench.feature.auth.domain.AuthRepository
 import com.omidgame.mench.feature.auth.domain.AuthResult
 import com.omidgame.mench.feature.auth.domain.OtpChallenge
+import com.omidgame.mench.feature.auth.domain.AuthFailureReason
+import com.omidgame.mench.feature.auth.domain.TwoStepChallenge
 import com.omidgame.mench.feature.auth.domain.RequestOtpUseCase
 import com.omidgame.mench.feature.auth.domain.VerifyOtpUseCase
 import io.mockk.coEvery
@@ -29,7 +31,11 @@ class AuthViewModelTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         authRepository = mockk()
-        viewModel = AuthViewModel(RequestOtpUseCase(authRepository), VerifyOtpUseCase(authRepository))
+        viewModel = AuthViewModel(
+            RequestOtpUseCase(authRepository),
+            VerifyOtpUseCase(authRepository),
+            com.omidgame.mench.feature.auth.domain.VerifyTwoStepUseCase(authRepository),
+        )
     }
 
     @After
@@ -71,7 +77,7 @@ class AuthViewModelTest {
 
             val failed = awaitItem() as AuthUiState.OtpEntry
             assertThat(failed.isVerifying).isFalse()
-            assertThat(failed.errorMessage).isNotNull()
+            assertThat(failed.errorReason).isNotNull()
         }
     }
 
@@ -90,6 +96,53 @@ class AuthViewModelTest {
             viewModel.onSubmitCode("54321", deviceName = "test-device")
             awaitItem() // OtpEntry(isVerifying = true)
             assertThat(awaitItem()).isEqualTo(AuthUiState.SignedIn)
+        }
+    }
+
+    @Test
+    fun `account with two-step verification moves OtpEntry to TwoStepEntry then SignedIn`() = runTest {
+        val challenge = OtpChallenge(challengeId = "c1", phone = "+15551234567")
+        val twoStep = TwoStepChallenge(ticket = "t1", hint = "pet name", phone = "+15551234567")
+        coEvery { authRepository.requestOtp(any()) } returns AuthResult.Success(challenge)
+        coEvery { authRepository.verifyOtp(any(), any(), any()) } returns AuthResult.TwoStepRequired(twoStep)
+        coEvery { authRepository.verifyTwoStep(twoStep, "right-pass") } returns AuthResult.Success(Unit)
+
+        viewModel.uiState.test {
+            awaitItem() // PhoneEntry
+            viewModel.onSubmitPhone("+15551234567")
+            awaitItem() // RequestingOtp
+            awaitItem() // OtpEntry
+
+            viewModel.onSubmitCode("54321", deviceName = "test-device")
+            awaitItem() // OtpEntry(isVerifying = true)
+            assertThat(awaitItem()).isEqualTo(AuthUiState.TwoStepEntry(twoStep))
+
+            viewModel.onSubmitTwoStepPassword("right-pass")
+            awaitItem() // TwoStepEntry(isVerifying = true)
+            assertThat(awaitItem()).isEqualTo(AuthUiState.SignedIn)
+        }
+    }
+
+    @Test
+    fun `wrong two-step password stays on TwoStepEntry with an error`() = runTest {
+        val challenge = OtpChallenge(challengeId = "c1", phone = "+15551234567")
+        val twoStep = TwoStepChallenge(ticket = "t1", hint = null, phone = "+15551234567")
+        coEvery { authRepository.requestOtp(any()) } returns AuthResult.Success(challenge)
+        coEvery { authRepository.verifyOtp(any(), any(), any()) } returns AuthResult.TwoStepRequired(twoStep)
+        coEvery { authRepository.verifyTwoStep(any(), any()) } returns AuthResult.Failure(AuthFailureReason.WRONG_PASSWORD)
+
+        viewModel.uiState.test {
+            awaitItem() // PhoneEntry
+            viewModel.onSubmitPhone("+15551234567")
+            awaitItem(); awaitItem() // RequestingOtp, OtpEntry
+            viewModel.onSubmitCode("54321", deviceName = "test-device")
+            awaitItem(); awaitItem() // verifying, TwoStepEntry
+
+            viewModel.onSubmitTwoStepPassword("nope")
+            awaitItem() // verifying
+            val failed = awaitItem() as AuthUiState.TwoStepEntry
+            assertThat(failed.isVerifying).isFalse()
+            assertThat(failed.errorReason).isNotNull()
         }
     }
 }

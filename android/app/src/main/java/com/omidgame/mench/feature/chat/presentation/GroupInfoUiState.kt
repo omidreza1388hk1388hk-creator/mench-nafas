@@ -11,6 +11,9 @@ sealed interface GroupInfoUiState {
         val isOwner: Boolean,
         /** Set after a failed add/remove/rename action — cleared on the next attempt, not auto-dismissed on a timer (this is a small settings-style screen, not a snackbar-driven one). */
         val actionError: String? = null,
+        /** Phase 2A: the caller's role, the group's permission/slow-mode settings and (admins only) the live invite links. */
+        val info: com.omidgame.mench.feature.chat.domain.GroupInfo? = null,
+        val invites: List<com.omidgame.mench.feature.chat.domain.GroupInvite> = emptyList(),
     ) : GroupInfoUiState
     data class Error(val message: String) : GroupInfoUiState
     /** Terminal state after successfully leaving the group — the nav graph pops back to the conversation list on seeing this (see MenchNavGraph). */

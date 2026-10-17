@@ -4,15 +4,33 @@ import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed interface RecordingResult {
-    data class Success(val filePath: String, val mimeType: String, val durationMs: Long) : RecordingResult
+    /** [waveform] = ~48 amplitude bars (0..255) measured while recording; empty when the recording was silent. */
+    data class Success(
+        val filePath: String,
+        val mimeType: String,
+        val durationMs: Long,
+        val waveform: List<Int> = emptyList(),
+    ) : RecordingResult
     data object Failed : RecordingResult
 }
+
+/** Live recording feedback for the composer: elapsed time and the most recent levels (0..1, oldest first). */
+data class RecorderLive(val elapsedMs: Long = 0L, val levels: List<Float> = emptyList())
 
 /**
  * Thin wrapper around MediaRecorder for voice messages. Records to
@@ -31,7 +49,42 @@ class VoiceRecorder @Inject constructor(
     private var outputFile: File? = null
     private var startedAtMillis: Long = 0L
 
+    // Phase 2A: amplitude sampling for the live waveform and the waveform sent with the message.
+    private val samplerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var samplerJob: Job? = null
+    private val amplitudes = ArrayList<Int>()
+    private val _live = MutableStateFlow(RecorderLive())
+    val live: StateFlow<RecorderLive> = _live
+
     val isRecording: Boolean get() = recorder != null
+
+    private fun startSampler(mediaRecorder: MediaRecorder, startedAt: Long) {
+        synchronized(amplitudes) { amplitudes.clear() }
+        samplerJob?.cancel()
+        samplerJob = samplerScope.launch {
+            var recent = emptyList<Float>()
+            while (isActive) {
+                delay(SAMPLE_INTERVAL_MS)
+                // First maxAmplitude call after start() just resets the counter and returns 0 — harmless.
+                val raw = try {
+                    mediaRecorder.maxAmplitude
+                } catch (e: Exception) {
+                    break // recorder stopped / released underneath us
+                }
+                synchronized(amplitudes) { amplitudes.add(raw) }
+                recent = (recent + Waveform.normalizeAmplitude(raw) / 255f).takeLast(LIVE_LEVELS)
+                _live.value = RecorderLive(elapsedMs = System.currentTimeMillis() - startedAt, levels = recent)
+            }
+        }
+    }
+
+    private fun stopSampler(): List<Int> {
+        samplerJob?.cancel()
+        samplerJob = null
+        val snapshot = synchronized(amplitudes) { amplitudes.toList().also { amplitudes.clear() } }
+        _live.value = RecorderLive()
+        return snapshot
+    }
 
     /** Returns false if recording could not start (e.g. mic unavailable) — caller should surface that rather than silently doing nothing. */
     fun start(): Boolean {
@@ -61,6 +114,7 @@ class VoiceRecorder @Inject constructor(
             recorder = mediaRecorder
             outputFile = file
             startedAtMillis = System.currentTimeMillis()
+            startSampler(mediaRecorder, startedAtMillis)
             true
         } catch (e: Exception) {
             mediaRecorder.release()
@@ -74,6 +128,7 @@ class VoiceRecorder @Inject constructor(
         val mediaRecorder = recorder ?: return RecordingResult.Failed
         val file = outputFile ?: return RecordingResult.Failed
         val durationMs = System.currentTimeMillis() - startedAtMillis
+        val measured = stopSampler()
         recorder = null
         outputFile = null
 
@@ -84,7 +139,7 @@ class VoiceRecorder @Inject constructor(
                 file.delete()
                 RecordingResult.Failed
             } else {
-                RecordingResult.Success(file.absolutePath, "audio/mp4", durationMs)
+                RecordingResult.Success(file.absolutePath, "audio/mp4", durationMs, Waveform.fromAmplitudes(measured))
             }
         } catch (e: Exception) {
             file.delete()
@@ -94,6 +149,7 @@ class VoiceRecorder @Inject constructor(
 
     /** Discards an in-progress recording (e.g. user cancels mid-recording) without sending anything. */
     fun cancel() {
+        stopSampler()
         try {
             recorder?.stop()
         } catch (e: Exception) {
@@ -103,5 +159,10 @@ class VoiceRecorder @Inject constructor(
         recorder = null
         outputFile?.delete()
         outputFile = null
+    }
+
+    private companion object {
+        const val SAMPLE_INTERVAL_MS = 60L
+        const val LIVE_LEVELS = 40
     }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsUUID, Length, ValidateIf } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, Length, ValidateIf } from 'class-validator';
 
 /**
  * body is now optional (an attachment-only message, e.g. a photo with no
@@ -18,4 +18,13 @@ export class SendMessageDto {
   @ValidateIf((dto: SendMessageDto) => !dto.body)
   @IsUUID()
   attachmentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  replyToMessageId?: string;
+
+  /** Phase 2A: deliver without a push notification (the message still arrives live / on next sync). */
+  @IsOptional()
+  @IsBoolean()
+  silent?: boolean;
 }

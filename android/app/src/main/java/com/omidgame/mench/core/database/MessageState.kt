@@ -10,6 +10,7 @@ enum class MessageState {
     PENDING,
     SENDING,
     SENT,
+    DELIVERED,
     READ,
     FAILED,
 }

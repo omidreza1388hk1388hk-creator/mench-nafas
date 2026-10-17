@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MessageEntity::class,
         OutboxEntity::class,
     ],
-    version = 7,
+    version = 15,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -182,5 +182,63 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `cached_self_user` ADD COLUMN `bio` TEXT")
+    }
+}
+
+/** Phase 7 (reply-to-message): one new nullable column, same plain-ALTER-TABLE shape as MIGRATION_4_5's forwardedFromMessageId — this is its direct sibling. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `messages` ADD COLUMN `replyToMessageId` TEXT")
+    }
+}
+
+/** Phase 8 (mute / pin): two per-user flags on the cached conversation row. DEFAULT 0 matches @ColumnInfo(defaultValue = "0") on the entity, which Room's schema validation requires. */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `isMuted` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `isPinned` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Phase 9 (romantic layer): shared "us" dates cached on the conversation row, ISO yyyy-MM-dd. Nullable, so no default needed. */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `togetherSince` TEXT")
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `nextMeetDate` TEXT")
+    }
+}
+
+/** Phase 10 (profile photos): the other person's photo version, cached on the conversation row so the list renders photos offline. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `otherUserAvatarVersion` INTEGER")
+    }
+}
+
+/** Phase 10 (archive): per-user flag on the cached conversation row, like isMuted/isPinned. */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Phase 11 (pinned message): server id of the conversation's pinned message, nullable. */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `conversations` ADD COLUMN `pinnedMessageId` TEXT")
+    }
+}
+
+/** Phase 1B (BlurHash placeholders): one nullable column on messages. */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `messages` ADD COLUMN `attachmentBlurHash` TEXT")
+    }
+}
+
+/** Phase 2A (voice waveform): one nullable TEXT column, same plain ALTER TABLE shape as MIGRATION_7_8. */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `messages` ADD COLUMN `attachmentWaveform` TEXT")
     }
 }

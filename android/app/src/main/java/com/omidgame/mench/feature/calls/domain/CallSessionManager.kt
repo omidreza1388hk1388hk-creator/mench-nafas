@@ -2,6 +2,8 @@ package com.omidgame.mench.feature.calls.domain
 
 import android.content.Context
 import android.util.Log
+import com.omidgame.mench.core.webrtc.CallAudioRouter
+import com.omidgame.mench.core.webrtc.ProximityScreenOff
 import com.omidgame.mench.core.webrtc.WebRtcClient
 import com.omidgame.mench.core.webrtc.WebRtcClientFactory
 import com.omidgame.mench.core.webrtc.WebRtcClientListener
@@ -11,7 +13,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.webrtc.PeerConnection
@@ -33,6 +37,8 @@ import javax.inject.Singleton
 class CallSessionManager @Inject constructor(
     private val callRepository: CallRepository,
     private val webRtcClientFactory: WebRtcClientFactory,
+    private val audioRouter: CallAudioRouter,
+    private val proximity: ProximityScreenOff,
     @ApplicationContext private val appContext: Context,
 ) {
     private val scope = CoroutineScope(SupervisorJob())
@@ -56,10 +62,59 @@ class CallSessionManager @Inject constructor(
     private var cachedOtherDisplayName: String? = null
     private var cachedOtherPhoneE164: String = ""
 
+    // ---- Phase 2B: reconnect, quality, in-call chat and reactions ----
+    private var qualityTracker = QualityTracker()
+    private var qualityJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var reconnectAttempts = 0
+    private var reactionCounter = 0L
+
+    private val _chat = MutableStateFlow<List<CallChatLine>>(emptyList())
+    val chat: StateFlow<List<CallChatLine>> = _chat
+    private val _unreadChat = MutableStateFlow(0)
+    val unreadChat: StateFlow<Int> = _unreadChat
+    private var chatPanelOpen = false
+    private val _reactions = MutableSharedFlow<CallReaction>(extraBufferCapacity = 16)
+    val reactions: SharedFlow<CallReaction> = _reactions
+
     init {
         scope.launch {
             callRepository.signals.collect { signal -> handleSignal(signal) }
         }
+        // Route changes (headset plugged in, Bluetooth gone, user picked speaker) are reflected in the call state.
+        scope.launch {
+            audioRouter.state.collect { routeState ->
+                val active = _state.value as? CallUiState.Active ?: return@collect
+                _state.value = active.copy(
+                    route = routeState.selected,
+                    availableRoutes = routeState.available,
+                    isSpeakerOn = routeState.selected == AudioRoute.SPEAKER,
+                )
+                proximity.setEnabled(AudioRoutePolicy.usesProximity(routeState.selected, active.session.callType))
+            }
+        }
+    }
+
+    fun selectAudioRoute(route: AudioRoute) = audioRouter.select(route)
+
+    fun sendChat(text: String) {
+        val callId = currentCallId() ?: return
+        val clean = text.trim().take(500)
+        if (clean.isEmpty()) return
+        callRepository.sendChat(callId, clean)
+        _chat.value = _chat.value + CallChatLine(fromMe = true, text = clean, atMillis = System.currentTimeMillis())
+    }
+
+    fun sendReaction(emoji: String) {
+        val callId = currentCallId() ?: return
+        callRepository.sendReaction(callId, emoji)
+        _reactions.tryEmit(CallReaction(++reactionCounter, emoji, fromMe = true))
+    }
+
+    /** The chat panel being open clears the unread dot and keeps it cleared while lines arrive. */
+    fun setChatPanelOpen(open: Boolean) {
+        chatPanelOpen = open
+        if (open) _unreadChat.value = 0
     }
 
     fun startOutgoingCall(conversationId: String, callType: CallType) {
@@ -123,9 +178,13 @@ class CallSessionManager @Inject constructor(
 
     fun toggleSpeaker() {
         val active = _state.value as? CallUiState.Active ?: return
-        val newSpeakerOn = !active.isSpeakerOn
-        webRtcClient?.setSpeakerphoneOn(newSpeakerOn)
-        _state.value = active.copy(isSpeakerOn = newSpeakerOn)
+        if (active.route == AudioRoute.SPEAKER) {
+            // Back to the best non-speaker output that is available (headset > Bluetooth > earpiece).
+            val fallback = AudioRoutePolicy.initial(CallType.VOICE, active.availableRoutes.filter { it != AudioRoute.SPEAKER })
+            audioRouter.select(fallback)
+        } else {
+            audioRouter.select(AudioRoute.SPEAKER)
+        }
     }
 
     fun switchCamera() {
@@ -160,13 +219,26 @@ class CallSessionManager @Inject constructor(
                 }
 
                 override fun onConnectionStateChanged(state: PeerConnection.IceConnectionState) {
-                    if (state == PeerConnection.IceConnectionState.CONNECTED) {
-                        promoteToActive(session)
-                    } else if (state == PeerConnection.IceConnectionState.FAILED) {
-                        scope.launch {
-                            runCatching { callRepository.endCall(session.id, reason = "ice_failed") }
-                            showEndedThenReset(CallStatus.ENDED, session.callType)
+                    when (state) {
+                        PeerConnection.IceConnectionState.CONNECTED,
+                        PeerConnection.IceConnectionState.COMPLETED,
+                        -> {
+                            onConnectionRestored()
+                            promoteToActive(session)
                         }
+                        PeerConnection.IceConnectionState.DISCONNECTED -> beginReconnect(session, failed = false)
+                        PeerConnection.IceConnectionState.FAILED -> {
+                            if (_state.value is CallUiState.Active) {
+                                beginReconnect(session, failed = true)
+                            } else {
+                                // Never got connected at all: nothing to restore, end like before.
+                                scope.launch {
+                                    runCatching { callRepository.endCall(session.id, reason = "ice_failed") }
+                                    showEndedThenReset(CallStatus.ENDED, session.callType)
+                                }
+                            }
+                        }
+                        else -> Unit
                     }
                 }
 
@@ -193,16 +265,21 @@ class CallSessionManager @Inject constructor(
     private fun promoteToActive(session: CallSession) {
         val current = _state.value
         if (current is CallUiState.Active) return // already promoted — IceConnectionState can flip CONNECTED more than once (e.g. after a brief network hiccup)
+        audioRouter.start(session.callType) // video: speaker, voice: earpiece, a headset always wins
+        val routeState = audioRouter.state.value
         _state.value = CallUiState.Active(
             session = session,
             durationSeconds = 0,
             isMuted = false,
-            isSpeakerOn = session.callType == CallType.VIDEO, // speaker by default for video, earpiece for voice — matches how people actually hold the phone for each
-            isFrontCamera = true,
+            isSpeakerOn = routeState.selected == AudioRoute.SPEAKER,
+            isFrontCamera = com.omidgame.mench.core.webrtc.CallSettingsStore.current.frontCameraDefault,
             isLocalVideoEnabled = session.callType == CallType.VIDEO,
+            route = routeState.selected,
+            availableRoutes = routeState.available,
         )
-        webRtcClient?.setSpeakerphoneOn(session.callType == CallType.VIDEO)
+        proximity.setEnabled(AudioRoutePolicy.usesProximity(routeState.selected, session.callType))
         startDurationTimer()
+        startQualityMonitor(session)
     }
 
     private fun startDurationTimer() {
@@ -214,6 +291,89 @@ class CallSessionManager @Inject constructor(
                 _state.value = active.copy(durationSeconds = active.durationSeconds + 1)
             }
         }
+    }
+
+    /** The connection dropped mid-call: show "Reconnecting…", let the caller restart ICE on a schedule, give up after ~28 s. */
+    private fun beginReconnect(session: CallSession, failed: Boolean) {
+        if (reconnectJob?.isActive == true) return
+        val active = _state.value as? CallUiState.Active ?: return
+        _state.value = active.copy(reconnecting = true)
+        val disconnectedAt = System.currentTimeMillis() - if (failed) ReconnectPolicy.GRACE_MS else 0L
+        reconnectAttempts = 0
+        reconnectJob = scope.launch {
+            while (_state.value is CallUiState.Active) {
+                delay(1000)
+                val elapsed = System.currentTimeMillis() - disconnectedAt
+                when (ReconnectPolicy.nextAction(elapsed, reconnectAttempts, session.isOutgoing)) {
+                    ReconnectPolicy.Action.WAIT -> Unit
+                    ReconnectPolicy.Action.RESTART_ICE -> {
+                        reconnectAttempts++
+                        val client = webRtcClient ?: break
+                        runCatching {
+                            val offer = client.createOffer(iceRestart = true)
+                            callRepository.sendOffer(session.id, offer)
+                        }.onFailure { Log.w(TAG, "ICE restart failed", it) }
+                    }
+                    ReconnectPolicy.Action.GIVE_UP -> {
+                        runCatching { callRepository.sendHangupSignal(session.id) }
+                        runCatching { callRepository.endCall(session.id, reason = "connection_lost") }
+                        showEndedThenReset(CallStatus.ENDED, session.callType)
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onConnectionRestored() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        reconnectAttempts = 0
+        val active = _state.value as? CallUiState.Active ?: return
+        if (active.reconnecting) _state.value = active.copy(reconnecting = false)
+    }
+
+    /** Every 3 s: read RTT / loss / jitter, debounce into GOOD / FAIR / POOR, and cap the video bitrate to match. */
+    private fun startQualityMonitor(session: CallSession) {
+        qualityJob?.cancel()
+        qualityTracker = QualityTracker()
+        qualityJob = scope.launch {
+            var lastBitrateTier = CallQualityTier.UNKNOWN
+            while (true) {
+                delay(3000)
+                val client = webRtcClient ?: break
+                val sample = client.sampleStats()
+                val tier = qualityTracker.push(sample)
+                val active = _state.value as? CallUiState.Active ?: break
+                if (active.quality != tier) _state.value = active.copy(quality = tier)
+                if (session.callType == CallType.VIDEO && tier != CallQualityTier.UNKNOWN && tier != lastBitrateTier) {
+                    val preset = com.omidgame.mench.core.webrtc.CallSettingsStore.current.qualityPreset
+                    client.setMaxVideoBitrate(CallQuality.maxVideoBitrateBps(tier, preset))
+                    lastBitrateTier = tier
+                }
+                // Settings Phase 2: remember the last measurement for the call diagnostics page (numbers only).
+                com.omidgame.mench.core.webrtc.CallDiagnostics.last = com.omidgame.mench.core.webrtc.CallDiagnosticsSnapshot(
+                    callType = session.callType.name,
+                    rttMs = sample.rttMs,
+                    packetLossPercent = sample.packetLossPercent,
+                    jitterMs = sample.jitterMs,
+                    tier = tier.name,
+                    bitrateCapBps = if (session.callType == CallType.VIDEO) CallQuality.maxVideoBitrateBps(tier, com.omidgame.mench.core.webrtc.CallSettingsStore.current.qualityPreset) else null,
+                    preset = com.omidgame.mench.core.webrtc.CallSettingsStore.current.qualityPreset.name,
+                    recordedAtMillis = System.currentTimeMillis(),
+                )
+            }
+        }
+    }
+
+    private fun stopCallExtras() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        qualityJob?.cancel()
+        qualityJob = null
+        reconnectAttempts = 0
+        audioRouter.stop()
+        proximity.setEnabled(false)
     }
 
     private suspend fun handleSignal(signal: CallSignalEvent) {
@@ -251,11 +411,19 @@ class CallSessionManager @Inject constructor(
             is CallSignalEvent.RemoteIceCandidate -> webRtcClient?.addRemoteIceCandidate(
                 LocalIceCandidate(signal.sdpMid, signal.sdpMLineIndex ?: 0, signal.candidate),
             )
+            is CallSignalEvent.RemoteChat -> if (signal.callId == currentCallId()) {
+                _chat.value = _chat.value + CallChatLine(fromMe = false, text = signal.text, atMillis = System.currentTimeMillis())
+                if (!chatPanelOpen) _unreadChat.value = _unreadChat.value + 1
+            }
+            is CallSignalEvent.RemoteReaction -> if (signal.callId == currentCallId()) {
+                _reactions.tryEmit(CallReaction(++reactionCounter, signal.emoji, fromMe = false))
+            }
         }
     }
 
     private fun showEndedThenReset(status: CallStatus, callType: CallType) {
         durationTimerJob?.cancel()
+        stopCallExtras()
         webRtcClient?.dispose()
         webRtcClient = null
         pendingRemoteVideoTrack = null
@@ -269,6 +437,10 @@ class CallSessionManager @Inject constructor(
 
     private fun resetToIdle() {
         durationTimerJob?.cancel()
+        stopCallExtras()
+        _chat.value = emptyList()
+        _unreadChat.value = 0
+        chatPanelOpen = false
         webRtcClient?.dispose()
         webRtcClient = null
         pendingRemoteVideoTrack = null

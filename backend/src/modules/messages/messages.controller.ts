@@ -25,6 +25,8 @@ export class MessagesController {
       clientMsgId: dto.clientMsgId,
       body: dto.body,
       attachmentId: dto.attachmentId,
+      replyToMessageId: dto.replyToMessageId,
+      silent: dto.silent === true,
     });
   }
 
@@ -40,6 +42,35 @@ export class MessagesController {
       query.after ?? 0,
       query.limit ?? 50,
     );
+  }
+
+  @Get('messages/:messageId/seen-by')
+  seenBy(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+  ) {
+    return this.messagesService.seenBy(conversationId, req.user.sub, messageId);
+  }
+
+  @Get('messages/:messageId/edits')
+  editHistory(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+  ) {
+    return this.messagesService.editHistory(conversationId, req.user.sub, messageId);
+  }
+
+  @Post('delivered')
+  async markDelivered(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: MarkReadDto,
+  ) {
+    // Same body shape as /read ({ lastReadSequence }) — reused rather than a near-identical DTO.
+    await this.messagesService.markDelivered(conversationId, req.user.sub, dto.lastReadSequence);
+    return { ok: true };
   }
 
   @Post('read')

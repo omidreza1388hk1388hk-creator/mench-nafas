@@ -3,11 +3,13 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { CallsRepository } from './calls.repository';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { UsersService } from '../users/users.service';
 import { IceServersService } from './ice-servers.service';
+import { PrivacyService } from '../privacy/privacy.service';
 import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
 import {
   CallHistorySummaryDto,
@@ -24,6 +26,7 @@ export class CallsService {
     private readonly usersService: UsersService,
     private readonly iceServersService: IceServersService,
     @Inject(REALTIME_BROADCASTER) private readonly broadcaster: RealtimeBroadcaster,
+    @Optional() private readonly privacy?: PrivacyService,
   ) {}
 
   /**
@@ -48,6 +51,8 @@ export class CallsService {
     if (!other) {
       throw new BadRequestException('This conversation has no other participant to call');
     }
+
+    await this.privacy?.assertCallable(other.id); // "who can call me" (Phase 4C)
 
     const call = await this.callsRepository.create(conversationId, callerId, other.id, callType);
     const caller = await this.usersService.findById(callerId);

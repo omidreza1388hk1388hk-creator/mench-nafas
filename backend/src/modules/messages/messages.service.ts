@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { decideSend, toRole } from '../conversations/group-policy';
 import { MessagesRepository, MessageRow } from './messages.repository';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ConversationsRepository } from '../conversations/conversations.repository';
@@ -7,6 +8,8 @@ import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-
 import { MessageDto, ReactionSummary } from '../realtime/realtime-events';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AccountService } from '../account/account.service';
+import { PrivacyService } from '../privacy/privacy.service';
 
 /**
  * reactions defaults to [] rather than being required at every call site
@@ -36,7 +39,9 @@ function toDto(row: MessageRow, reactions: ReactionSummary[] = []): MessageDto {
           widthPx: row.attachment_width_px,
           heightPx: row.attachment_height_px,
           durationMs: row.attachment_duration_ms,
+          waveform: row.attachment_waveform ?? null,
           hasThumbnail: row.attachment_thumbnail_storage_key !== null,
+          blurHash: row.attachment_blur_hash ?? null,
         }
       : null,
     // BIGSERIAL comes back from pg as a string to avoid silent precision
@@ -48,6 +53,7 @@ function toDto(row: MessageRow, reactions: ReactionSummary[] = []): MessageDto {
     editedAt: row.edited_at ? row.edited_at.toISOString() : null,
     deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
     forwardedFromMessageId: row.forwarded_from_message_id,
+    replyToMessageId: row.reply_to_message_id,
     reactions,
   };
 }
@@ -60,6 +66,10 @@ export interface SendMessageInput {
   attachmentId?: string;
   /** Set only when this send is actually a forward — see MessagesService.forward. */
   forwardedFromMessageId?: string;
+  /** The message this one is quoting/replying to, within the same conversation — validated in send() below, not just trusted from the client. */
+  replyToMessageId?: string;
+  /** Phase 2A: skip the push notification for this message (it is still delivered live / on next sync). */
+  silent?: boolean;
 }
 
 @Injectable()
@@ -71,12 +81,36 @@ export class MessagesService {
     private readonly attachmentsService: AttachmentsService,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
+    private readonly accountService: AccountService,
     @Inject(REALTIME_BROADCASTER) private readonly broadcaster: RealtimeBroadcaster,
+    @Optional() private readonly privacy?: PrivacyService,
   ) {}
+
+  /** Phase 2A: channel (admins-only) and slow-mode rules for groups. Direct chats have no such rules. */
+  private async assertMaySend(conversationId: string, senderId: string, clientMsgId: string): Promise<void> {
+    const context = await this.conversationsRepository.getSendContext(conversationId, senderId, clientMsgId);
+    if (!context || context.kind !== 'group') return;
+    const decision = decideSend(
+      { sendMessages: context.sendMessages, slowModeSeconds: context.slowModeSeconds },
+      toRole(context.role),
+      context.lastSentAt ? context.lastSentAt.getTime() : null,
+      Date.now(),
+    );
+    if (decision.ok) return;
+    if (decision.reason === 'admins_only') throw new ForbiddenException('Only admins can post in this channel');
+    throw new HttpException(
+      { statusCode: 429, error: 'Too Many Requests', message: `Slow mode is on — wait ${decision.retryAfterSeconds}s`, retryAfterSeconds: decision.retryAfterSeconds },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
 
   async send(input: SendMessageInput): Promise<MessageDto> {
     const { conversationId, senderId, clientMsgId } = input;
     await this.conversationsService.assertMember(conversationId, senderId);
+    await this.assertMaySend(conversationId, senderId, clientMsgId);
+
+    // Phase 1C: a person you blocked cannot message you in a direct chat.
+    await this.accountService.assertNotBlocked(conversationId, senderId, input.body ?? null);
 
     let kind: 'text' | 'image' | 'file' | 'audio' | 'video' = 'text';
 
@@ -98,6 +132,19 @@ export class MessagesService {
       kind = attachment.kind as 'image' | 'file' | 'audio' | 'video';
     }
 
+    if (input.replyToMessageId) {
+      const replyTarget = await this.messagesRepository.findById(input.replyToMessageId);
+      // Same shape as the attachment checks above: must exist AND belong
+      // to this conversation. Deliberately not rejecting a reply to an
+      // already-deleted message — the client still has (and shows) the
+      // deleted-message placeholder at that spot in history, so quoting
+      // it is harmless, unlike quoting a message from a conversation the
+      // sender was never a member of.
+      if (!replyTarget || replyTarget.conversation_id !== conversationId) {
+        throw new BadRequestException('Message being replied to was not found in this conversation');
+      }
+    }
+
     const row = await this.messagesRepository.createIdempotent({
       conversationId,
       senderId,
@@ -106,6 +153,7 @@ export class MessagesService {
       body: input.body ?? null,
       attachmentId: input.attachmentId ?? null,
       forwardedFromMessageId: input.forwardedFromMessageId ?? null,
+      replyToMessageId: input.replyToMessageId ?? null,
     });
     const dto = toDto(row);
 
@@ -124,8 +172,12 @@ export class MessagesService {
     // rather than wrapping in a try/catch here too.
     const conversation = await this.conversationsRepository.findById(conversationId);
     const sender = await this.usersService.findById(senderId);
+    // Phase 8: a member who muted this conversation still gets the message
+    // (live over the socket, or on next sync) — only the push is skipped.
+    const mutedIds = new Set((await this.conversationsRepository.listMutedMemberIds(conversationId)) ?? []);
+    if (input.silent === true) return dto; // Phase 2A: "send without sound" — no push at all
     void this.notificationsService.notifyNewMessage({
-      recipientUserIds: otherMemberIds,
+      recipientUserIds: otherMemberIds.filter((id) => !mutedIds.has(id)),
       conversationId,
       conversationTitle: conversation?.title ?? null,
       senderDisplayName: sender?.display_name ?? sender?.phone_e164 ?? 'Someone',
@@ -134,6 +186,31 @@ export class MessagesService {
     });
 
     return dto;
+  }
+
+  /** Who has seen one of my messages in a group. Only the sender may ask (members must not see each other's read state for other people's messages). */
+  async seenBy(conversationId: string, requesterId: string, messageId: string) {
+    await this.conversationsService.assertMember(conversationId, requesterId);
+    const message = await this.messagesRepository.findById(messageId);
+    if (!message || message.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    if (message.sender_id !== requesterId) throw new ForbiddenException('Only the sender can see who read a message');
+    const rows = await this.messagesRepository.listSeenBy(conversationId, Number(message.sequence), requesterId);
+    return rows.map((r) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+      phoneE164: r.phone_e164,
+      readAt: r.read_at.toISOString(),
+    }));
+  }
+
+  /** Earlier versions of an edited message; any member of the conversation may read them. */
+  async editHistory(conversationId: string, requesterId: string, messageId: string) {
+    await this.conversationsService.assertMember(conversationId, requesterId);
+    const message = await this.messagesRepository.findById(messageId);
+    if (!message || message.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    if (message.deleted_at) return [];
+    const rows = await this.messagesRepository.listEdits(messageId);
+    return rows.map((r) => ({ body: r.old_body ?? '', replacedAt: r.edited_at.toISOString() }));
   }
 
   async list(conversationId: string, requestingUserId: string, after: number, limit: number) {
@@ -278,9 +355,30 @@ export class MessagesService {
     });
   }
 
+  /**
+   * Phase 11: the recipient's device tells us it has RECEIVED messages up to
+   * this sequence (before they are read). Relayed live to the other members so
+   * the sender's ticks turn into a grey double tick. Not persisted: like
+   * message.read, it only matters while the sender is looking.
+   */
+  async markDelivered(conversationId: string, userId: string, lastDeliveredSequence: number): Promise<void> {
+    await this.conversationsService.assertMember(conversationId, userId);
+    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
+    this.broadcaster.broadcastToUsers(otherMemberIds, {
+      type: 'message.delivered',
+      conversationId,
+      userId,
+      lastDeliveredSequence,
+    });
+  }
+
   async markRead(conversationId: string, userId: string, lastReadSequence: number): Promise<void> {
     await this.conversationsService.assertMember(conversationId, userId);
     await this.messagesRepository.upsertReadReceipt(conversationId, userId, lastReadSequence);
+
+    // Read receipts off (Phase 4C): the cursor is still stored (unread counts need it) but the
+    // other members are not told, so the sender's ticks never turn "read".
+    if (this.privacy && !(await this.privacy.sendsReadReceipts(userId))) return;
 
     const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
       conversationId,

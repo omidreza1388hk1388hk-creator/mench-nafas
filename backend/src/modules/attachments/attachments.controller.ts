@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  GoneException,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -74,6 +75,7 @@ export class AttachmentsController {
       thumbnailBuffer: files.thumbnail?.[0]?.buffer ?? null,
       clientReportedWidthPx: dto.widthPx ?? null,
       clientReportedHeightPx: dto.heightPx ?? null,
+      waveformBase64: dto.waveform ?? null,
     });
 
     return toAttachmentDto(attachment);
@@ -102,6 +104,13 @@ export class AttachmentContentController {
     // back — the same 404-not-403 policy as everywhere else (spec 34).
     await this.conversationsService.assertMember(attachment.conversation_id, req.user.sub);
 
+    // Phase 4C view-once ("vo-" filenames): the recipient can download it exactly once; the sender always can.
+    if (attachment.original_filename.startsWith('vo-') && attachment.uploader_id !== req.user.sub) {
+      if (!(await this.attachmentsService.consumeViewOnce(attachment.id))) {
+        throw new GoneException('This view-once media was already opened');
+      }
+    }
+
     const buffer = await this.attachmentsService.getContent(attachment.storage_key);
     res.set({
       'Content-Type': attachment.mime_type,
@@ -123,6 +132,10 @@ export class AttachmentContentController {
     }
 
     await this.conversationsService.assertMember(attachment.conversation_id, req.user.sub);
+    // No preview of view-once media for the recipient (it would defeat the purpose).
+    if (attachment.original_filename.startsWith('vo-') && attachment.uploader_id !== req.user.sub) {
+      throw new NotFoundException('No thumbnail for this attachment');
+    }
 
     const buffer = await this.attachmentsService.getContent(attachment.thumbnail_storage_key);
     res.set({

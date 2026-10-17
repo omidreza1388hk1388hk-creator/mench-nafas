@@ -20,6 +20,8 @@ data class MessageAttachmentSummaryWire(
     val heightPx: Int?,
     val durationMs: Long?,
     val hasThumbnail: Boolean,
+    val blurHash: String? = null,
+    val waveform: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -42,6 +44,7 @@ data class MessageWire(
     val editedAt: String? = null,
     val deletedAt: String? = null,
     val forwardedFromMessageId: String? = null,
+    val replyToMessageId: String? = null,
     val reactions: List<ReactionSummaryWire> = emptyList(),
 )
 
@@ -57,6 +60,15 @@ data class ConversationWire(
     val otherUserId: String?,
     val otherUserPhoneE164: String?,
     val otherUserDisplayName: String?,
+    val isMuted: Boolean = false,
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
+    /** Phase 11 — server id of the pinned message, null = none. */
+    val pinnedMessageId: String? = null,
+    val togetherSince: String? = null,
+    val nextMeetDate: String? = null,
+    /** Phase 10 — the other person's profile-photo version (ms), null = no photo. */
+    val otherUserAvatarVersion: Long? = null,
 )
 
 /** Mirrors backend/src/modules/realtime/realtime-events.ts's CallIncomingSummary. */
@@ -92,11 +104,132 @@ sealed interface ServerToClientEvent {
         val reactions: List<ReactionSummaryWire>,
     ) : ServerToClientEvent
 
+    /** Phase 11. The other person's device received our messages up to this sequence. */
+    @JsonClass(generateAdapter = true)
+    data class MessageDelivered(
+        val conversationId: String,
+        val userId: String,
+        val lastDeliveredSequence: Long,
+    ) : ServerToClientEvent
+
     @JsonClass(generateAdapter = true)
     data class MessageRead(
         val conversationId: String,
         val userId: String,
         val lastReadSequence: Long,
+    ) : ServerToClientEvent
+
+    /** Phase 9. A shared 'us' date changed (either person can set them). */
+    @JsonClass(generateAdapter = true)
+    data class UsUpdated(
+        val conversationId: String,
+        val togetherSince: String?,
+        val nextMeetDate: String?,
+    ) : ServerToClientEvent
+
+    /** Phase 2A. A poll changed (vote / closed); carries the whole poll. */
+    @JsonClass(generateAdapter = true)
+    data class PollUpdated(val conversationId: String, val poll: com.omidgame.mench.core.network.PollWire) : ServerToClientEvent
+
+    /** Phase 11. The pinned message of a conversation changed (null = unpinned). */
+    @JsonClass(generateAdapter = true)
+    data class PinChanged(val conversationId: String, val messageId: String?) : ServerToClientEvent
+
+    /** Phase 4C. The disappearing-messages timer of a conversation changed (seconds null = off). */
+    @JsonClass(generateAdapter = true)
+    data class DisappearingChanged(
+        val conversationId: String,
+        val seconds: Int?,
+        val changedBy: String,
+    ) : ServerToClientEvent
+
+    /** Phase 11. The partner answered today's question. */
+    @JsonClass(generateAdapter = true)
+    data class QuestionAnswered(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 11. The shared wishlist changed. */
+    @JsonClass(generateAdapter = true)
+    data class WishlistChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 9. The partner set today's mood. */
+    @JsonClass(generateAdapter = true)
+    data class MoodChanged(
+        val conversationId: String,
+        val userId: String,
+        val emoji: String,
+        val text: String?,
+        val setAt: String,
+    ) : ServerToClientEvent
+
+    /** Phase 3. A photo was added to, reacted to, or removed from the shared album. */
+    @JsonClass(generateAdapter = true)
+    data class AlbumChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 3A. A quiz was added or deleted, or your quiz was answered. */
+    @JsonClass(generateAdapter = true)
+    data class QuizChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 3. The partner added or deleted a vault note. */
+    @JsonClass(generateAdapter = true)
+    data class VaultChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 3B. A story was added or deleted, or your story was seen. */
+    @JsonClass(generateAdapter = true)
+    data class StoryChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 3A. The partner drew on, or cleared, the shared canvas. */
+    @JsonClass(generateAdapter = true)
+    data class CanvasChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 3A. The partner added, bumped or removed a shared counter. */
+    @JsonClass(generateAdapter = true)
+    data class CounterChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 9. The partner added/removed a shared memory. */
+    @JsonClass(generateAdapter = true)
+    data class MemoryChanged(val conversationId: String) : ServerToClientEvent
+
+    /** Phase 9. A hug or kiss from the partner ([kind] = "hug" | "kiss"). */
+    @JsonClass(generateAdapter = true)
+    data class AffectionReceived(val conversationId: String, val from: String, val kind: String) : ServerToClientEvent
+
+    /** Phase 9. A sealed letter was written to this user. */
+    @JsonClass(generateAdapter = true)
+    data class LetterReceived(val conversationId: String, val letterId: String) : ServerToClientEvent
+
+    /** Phase 9. The partner opened a letter this user wrote. */
+    @JsonClass(generateAdapter = true)
+    data class LetterOpened(val conversationId: String, val letterId: String) : ServerToClientEvent
+
+    /** Phase 9. The partner tapped "I miss you". */
+    @JsonClass(generateAdapter = true)
+    data class MissYou(val conversationId: String, val from: String) : ServerToClientEvent
+
+    /** Phase 3A. A live heartbeat from the partner (press-and-hold heart); the client vibrates in rhythm and plays a full-screen pulse for [durationMs]. */
+    @JsonClass(generateAdapter = true)
+    data class Heartbeat(val conversationId: String, val from: String, val durationMs: Long) : ServerToClientEvent
+
+    /** Phase 3A. A full-screen effect the sender picked by hand; [effect] is MessageEffect.wire. */
+    @JsonClass(generateAdapter = true)
+    data class ScreenEffect(val conversationId: String, val from: String, val effect: String) : ServerToClientEvent
+
+    /** Phase 3: Together mode (live-synced playback). */
+    data class Together(
+        val conversationId: String,
+        val from: String,
+        val kind: String,
+        val attachmentId: String?,
+        val positionMs: Long,
+        val playing: Boolean,
+        val sentAt: Long,
+    ) : ServerToClientEvent
+
+    /** Phase 8. Online/offline transition (or per-contact snapshot right after connecting) for someone sharing a conversation with this user. lastSeenAt is ISO-8601, null if never seen. */
+    @JsonClass(generateAdapter = true)
+    data class PresenceChanged(
+        val userId: String,
+        val online: Boolean,
+        val lastSeenAt: String?,
     ) : ServerToClientEvent
 
     @JsonClass(generateAdapter = true)
@@ -166,6 +299,13 @@ sealed interface ServerToClientEvent {
 
     @JsonClass(generateAdapter = true)
     data class CallHangup(val callId: String, val from: String) : ServerToClientEvent
+
+    /** Phase 2B. In-call chat line / emoji reaction from the other participant. */
+    @JsonClass(generateAdapter = true)
+    data class CallChat(val callId: String, val from: String, val text: String, val sentAt: String) : ServerToClientEvent
+
+    @JsonClass(generateAdapter = true)
+    data class CallReaction(val callId: String, val from: String, val emoji: String) : ServerToClientEvent
 }
 
 sealed interface ClientToServerEvent {
@@ -198,5 +338,13 @@ sealed interface ClientToServerEvent {
 
     data class CallHangup(val callId: String) : ClientToServerEvent {
         override val type = "call.hangup"
+    }
+
+    data class CallChat(val callId: String, val text: String) : ClientToServerEvent {
+        override val type = "call.chat"
+    }
+
+    data class CallReaction(val callId: String, val emoji: String) : ClientToServerEvent {
+        override val type = "call.reaction"
     }
 }

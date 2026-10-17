@@ -13,8 +13,22 @@ data class ChatUiState(
     val conversations: List<Conversation> = emptyList(),
     /** Whether THIS screen's conversation (not any entry in `conversations` generally) is a group — gates whether ChatScreen shows a sender-name label above each received bubble, which only makes sense when more than one other person can send here. */
     val isGroupConversation: Boolean = false,
+    /** The private Saved messages chat: no calls, no couple features, titled locally. */
+    val isSavedMessages: Boolean = false,
     /** userId -> display name (or phone number if no display name), fetched once via ChatRepository.listMembers — see ChatViewModel's doc comment on why this isn't kept live. */
     val memberDisplayNames: Map<String, String> = emptyMap(),
+    /** Phase 2: group members' profile-photo versions (userId -> version) for sender avatars. */
+    val memberAvatarVersions: Map<String, Long> = emptyMap(),
     /** The top app bar's title — a group's title, or the other member's display name/phone for a direct conversation. Null only in the brief window before `conversations` has loaded. */
     val headerTitle: String? = null,
+    /** Phase 9 — shared dates of THIS direct conversation (ISO yyyy-MM-dd). */
+    val togetherSince: String? = null,
+    val nextMeetDate: String? = null,
+    val otherUserId: String? = null,
+    val conversationId: String = "",
+    /** Phase 11 — the pinned message (looked up in the local cache by server id), null = none or not loaded. */
+    val pinnedMessage: Message? = null,
+    val otherUserAvatarVersion: Long? = null,
+    /** True while older messages exist beyond the loaded window (Phase 1B windowed history). */
+    val hasOlderMessages: Boolean = false,
 )

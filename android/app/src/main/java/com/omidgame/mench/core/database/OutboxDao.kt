@@ -18,6 +18,20 @@ interface OutboxDao {
     @Query("DELETE FROM outbox WHERE operationId = :operationId")
     suspend fun delete(operationId: String)
 
+    /** Raw payloads of every queued operation (any state). Used to protect unsent local files from cache cleanup. */
+    @Query("SELECT payloadJson FROM outbox")
+    suspend fun allPayloads(): List<String>
+
+    @Query("SELECT * FROM outbox WHERE operationId = :operationId")
+    suspend fun getById(operationId: String): OutboxEntity?
+
+    /** Puts a given-up entry back in the queue with a fresh retry budget (user tapped "retry"). */
+    @Query("UPDATE outbox SET state = :state, retryCount = 0 WHERE operationId = :operationId")
+    suspend fun resetForRetry(operationId: String, state: String)
+
+    @Query("UPDATE outbox SET state = :state WHERE operationId = :operationId")
+    suspend fun setState(operationId: String, state: String)
+
     @Query("SELECT COUNT(*) FROM outbox WHERE state = :state")
     suspend fun countByState(state: String): Int
 }

@@ -1,0 +1,22 @@
+# Phase 1B: hand-written baseline profile (rules, not recorded). It tells ART to precompile the
+# startup, chat-list, chat-screen and scrolling paths so cold start and first scroll are faster.
+# Recording a measured profile needs a device + Macrobenchmark module; this works without one.
+HSPLcom/omidgame/mench/MenchApplication;-><init>()V
+HSPLcom/omidgame/mench/MenchApplication;->**(**)**
+HSPLcom/omidgame/mench/MainActivity;->**(**)**
+HSPLcom/omidgame/mench/core/ui/theme/**;->**(**)**
+HSPLcom/omidgame/mench/core/ui/components/**;->**(**)**
+HSPLcom/omidgame/mench/core/ui/navigation/**;->**(**)**
+HSPLcom/omidgame/mench/core/database/**;->**(**)**
+HSPLcom/omidgame/mench/core/network/**;->**(**)**
+HSPLcom/omidgame/mench/feature/splash/**;->**(**)**
+HSPLcom/omidgame/mench/feature/chat/**;->**(**)**
+HSPLcom/omidgame/mench/feature/appearance/**;->**(**)**
+HSPLcom/omidgame/mench/feature/security/**;->**(**)**
+Lcom/omidgame/mench/**;
+HSPLandroidx/compose/runtime/**;->**(**)**
+HSPLandroidx/compose/ui/**;->**(**)**
+HSPLandroidx/compose/foundation/lazy/**;->**(**)**
+HSPLandroidx/compose/foundation/gestures/**;->**(**)**
+HSPLandroidx/compose/material3/**;->**(**)**
+HSPLandroidx/compose/animation/**;->**(**)**

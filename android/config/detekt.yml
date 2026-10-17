@@ -1,0 +1,22 @@
+# Phase 4B: deliberately lenient baseline; tighten as the codebase gets compiled and cleaned.
+build:
+  maxIssues: -1
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    maxLineLength: 160
+complexity:
+  LongMethod:
+    active: false
+  LongParameterList:
+    active: false
+  CyclomaticComplexMethod:
+    active: false
+  LargeClass:
+    active: false
+  TooManyFunctions:
+    active: false
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']

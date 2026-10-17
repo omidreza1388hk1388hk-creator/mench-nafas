@@ -4,6 +4,7 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthService } from './auth.service';
+import { VerifyTwoStepDto } from '../two-step/dto/two-step.dto';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
 
 @Controller('auth')
@@ -30,6 +31,23 @@ export class AuthController {
       dto.code,
       dto.deviceName,
     );
+    if ('twoStepRequired' in tokens) {
+      // 200 with a different shape (not an error): the code was right, the password is next.
+      return { twoStepRequired: true, ticket: tokens.ticket, hint: tokens.hint };
+    }
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      userId: tokens.userId,
+      deviceId: tokens.deviceId,
+    };
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('two-step/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyTwoStep(@Body() dto: VerifyTwoStepDto) {
+    const tokens = await this.authService.completeTwoStep(dto.ticket, dto.password);
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
