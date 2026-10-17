@@ -55,10 +55,10 @@ class UserDaoTest {
     @Test
     fun `upsert with same id replaces the previous row rather than duplicating it`() = runTest {
         dao.upsert(
-            UserEntity("user-1", "+15551234567", "Old Name", null, null, 1_000L),
+            UserEntity("user-1", "+15551234567", "Old Name", null, null, updatedAtEpochMillis = 1_000L),
         )
         dao.upsert(
-            UserEntity("user-1", "+15551234567", "New Name", null, null, 2_000L),
+            UserEntity("user-1", "+15551234567", "New Name", null, null, updatedAtEpochMillis = 2_000L),
         )
 
         val result = dao.getSelfOnce()
@@ -67,7 +67,7 @@ class UserDaoTest {
 
     @Test
     fun `clear removes cached user so an offline-only account leaves no trace`() = runTest {
-        dao.upsert(UserEntity("user-1", "+15551234567", null, null, null, 1_000L))
+        dao.upsert(UserEntity("user-1", "+15551234567", null, null, null, updatedAtEpochMillis = 1_000L))
         dao.clear()
 
         assertThat(dao.getSelfOnce()).isNull()

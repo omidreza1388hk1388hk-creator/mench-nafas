@@ -4,18 +4,19 @@ import com.google.common.truth.Truth.assertThat
 import com.omidgame.mench.core.database.UserDao
 import com.omidgame.mench.core.database.UserEntity
 import com.omidgame.mench.core.network.AuthApi
-import com.omidgame.mench.core.network.AuthTokensResponse
+import com.omidgame.mench.core.network.AuthenticatedAuthApi
 import com.omidgame.mench.core.network.RequestOtpBody
 import com.omidgame.mench.core.network.RequestOtpResponse
-import com.omidgame.mench.core.network.VerifyOtpBody
+import com.omidgame.mench.core.network.VerifyOtpResponse
+import com.omidgame.mench.core.notifications.PushTokenRegistrar
 import com.omidgame.mench.core.security.StoredTokens
 import com.omidgame.mench.core.security.TokenStore
 import com.omidgame.mench.feature.auth.domain.AuthFailureReason
 import com.omidgame.mench.feature.auth.domain.AuthResult
 import com.omidgame.mench.feature.auth.domain.OtpChallenge
+import com.omidgame.mench.feature.security.domain.AppLockRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.match
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -29,16 +30,29 @@ import java.io.IOException
 class AuthRepositoryImplTest {
 
     private lateinit var authApi: AuthApi
+    private lateinit var authenticatedAuthApi: AuthenticatedAuthApi
     private lateinit var tokenStore: TokenStore
     private lateinit var userDao: UserDao
+    private lateinit var appLockRepository: AppLockRepository
+    private lateinit var pushTokenRegistrar: PushTokenRegistrar
     private lateinit var repository: AuthRepositoryImpl
 
     @Before
     fun setUp() {
         authApi = mockk()
+        authenticatedAuthApi = mockk(relaxed = true)
         tokenStore = mockk(relaxUnitFun = true)
         userDao = mockk(relaxUnitFun = true)
-        repository = AuthRepositoryImpl(authApi, tokenStore, userDao)
+        appLockRepository = mockk(relaxed = true)
+        pushTokenRegistrar = mockk(relaxed = true)
+        repository = AuthRepositoryImpl(
+            authApi,
+            authenticatedAuthApi,
+            tokenStore,
+            userDao,
+            appLockRepository,
+            pushTokenRegistrar,
+        )
     }
 
     @Test
@@ -74,7 +88,7 @@ class AuthRepositoryImplTest {
     @Test
     fun `verifyOtp on success stores tokens and caches user, never logs the code`() = runTest {
         val challenge = OtpChallenge(challengeId = "abc-123", phone = "+15551234567")
-        coEvery { authApi.verifyOtp(any()) } returns AuthTokensResponse(
+        coEvery { authApi.verifyOtp(any()) } returns VerifyOtpResponse(
             accessToken = "access-xyz",
             refreshToken = "refresh-xyz",
             userId = "user-1",
@@ -84,7 +98,7 @@ class AuthRepositoryImplTest {
         val result = repository.verifyOtp(challenge, code = "54321", deviceName = "Pixel 9")
 
         assertThat(result).isEqualTo(AuthResult.Success(Unit))
-        coVerify { tokenStore.save(StoredTokens("access-xyz", "refresh-xyz")) }
+        coVerify { tokenStore.save(StoredTokens("access-xyz", "refresh-xyz", "device-1")) }
         coVerify { userDao.upsert(match<UserEntity> { it.id == "user-1" && it.phoneE164 == challenge.phone }) }
     }
 
@@ -102,7 +116,7 @@ class AuthRepositoryImplTest {
 
     @Test
     fun `logout clears local tokens even if the server call fails`() = runTest {
-        coEvery { tokenStore.read() } returns StoredTokens("access", "refresh")
+        coEvery { tokenStore.read() } returns StoredTokens("access", "refresh", "device-1")
         coEvery { authApi.logout(any()) } throws IOException("offline")
 
         repository.logout()

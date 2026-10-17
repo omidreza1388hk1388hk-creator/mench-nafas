@@ -47,7 +47,7 @@ class ChatFoldersTest {
     }
 
     @Test
-    fun `filters match unread, groups and folders; a deleted folder falls back to All`() {
+    fun `filters match unread, groups and folders - a deleted folder falls back to All`() {
         val f = sample()
         assertThat(ChatFolders.matches(ChatFilter.All, f, "x", isGroup = false, unread = false)).isTrue()
         assertThat(ChatFolders.matches(ChatFilter.Unread, f, "x", isGroup = false, unread = true)).isTrue()

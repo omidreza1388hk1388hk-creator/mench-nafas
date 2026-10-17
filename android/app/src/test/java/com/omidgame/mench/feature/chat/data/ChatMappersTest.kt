@@ -29,6 +29,7 @@ private fun textMessageEntity(
     attachmentSizeBytes = null,
     attachmentWidthPx = null,
     attachmentHeightPx = null,
+    attachmentDurationMs = null,
     attachmentHasThumbnail = false,
     localContentUri = null,
     localThumbnailUri = null,
