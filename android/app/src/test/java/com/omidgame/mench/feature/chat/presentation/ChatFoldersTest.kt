@@ -42,7 +42,8 @@ class ChatFoldersTest {
         assertThat(ChatFolders.rename(f, "f2", "Office")[1].name).isEqualTo("Office")
         assertThat(ChatFolders.rename(f, "f2", "family")).isEqualTo(f)
         assertThat(ChatFolders.delete(f, "f1").map { it.id }).containsExactly("f2")
-        assertThat(ChatFolders.prune(f, setOf("c2", "zz"))).isSameInstanceAs(f)
+        assertThat(ChatFolders.prune(f, setOf("c1", "c2", "zz"))).isSameInstanceAs(f)
+        assertThat(ChatFolders.prune(f, setOf("c2", "zz"))[0].conversationIds).containsExactly("c2")
         assertThat(ChatFolders.prune(f, emptySet()).all { it.conversationIds.isEmpty() }).isTrue()
     }
 

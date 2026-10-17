@@ -34,7 +34,8 @@ class PrefResetPlanTest {
     @Test fun `canReset matches what exists`() {
         assertThat(SettingsResetPlan.canReset(SettingsCategory.DATA)).isTrue()
         assertThat(SettingsResetPlan.canReset(SettingsCategory.SECURITY)).isTrue() // auto-lock delay only
-        assertThat(SettingsResetPlan.canReset(SettingsCategory.CALLS)).isFalse()
+        assertThat(SettingsResetPlan.canReset(SettingsCategory.CALLS)).isTrue()
+        assertThat(SettingsResetPlan.canReset(SettingsCategory.ACCOUNT)).isFalse()
         assertThat(SettingsResetPlan.resettableCategories).doesNotContain(SettingsCategory.ACCOUNT)
     }
 }
