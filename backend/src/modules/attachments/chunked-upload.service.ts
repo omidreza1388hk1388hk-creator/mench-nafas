@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -61,9 +66,12 @@ export class ChunkedUploadService {
 
   async init(input: InitChunkedUploadInput): Promise<ChunkedUploadStatus> {
     const maxSize = this.config.get<number>('MAX_ATTACHMENT_SIZE_BYTES') as number;
-    if (!Number.isInteger(input.totalSize) || input.totalSize <= 0) throw new BadRequestException('Invalid totalSize');
+    if (!Number.isInteger(input.totalSize) || input.totalSize <= 0)
+      throw new BadRequestException('Invalid totalSize');
     if (input.totalSize > maxSize) {
-      throw new PayloadTooLargeException(`Attachment exceeds the ${Math.floor(maxSize / (1024 * 1024))}MB limit`);
+      throw new PayloadTooLargeException(
+        `Attachment exceeds the ${Math.floor(maxSize / (1024 * 1024))}MB limit`,
+      );
     }
     if (input.chunkSize < MIN_CHUNK_BYTES || input.chunkSize > MAX_CHUNK_BYTES) {
       throw new BadRequestException('chunkSize must be between 256 KB and 8 MB');
@@ -87,17 +95,32 @@ export class ChunkedUploadService {
     return this.statusOf(uploadId, meta);
   }
 
-  async status(userId: string, conversationId: string, uploadId: string): Promise<ChunkedUploadStatus> {
+  async status(
+    userId: string,
+    conversationId: string,
+    uploadId: string,
+  ): Promise<ChunkedUploadStatus> {
     const meta = await this.loadMeta(userId, conversationId, uploadId);
     return this.statusOf(uploadId, meta);
   }
 
-  async putChunk(userId: string, conversationId: string, uploadId: string, index: number, data: Buffer): Promise<ChunkedUploadStatus> {
+  async putChunk(
+    userId: string,
+    conversationId: string,
+    uploadId: string,
+    index: number,
+    data: Buffer,
+  ): Promise<ChunkedUploadStatus> {
     const meta = await this.loadMeta(userId, conversationId, uploadId);
     const totalChunks = Math.ceil(meta.totalSize / meta.chunkSize);
-    if (!Number.isInteger(index) || index < 0 || index >= totalChunks) throw new BadRequestException('Chunk index out of range');
-    const expected = index === totalChunks - 1 ? meta.totalSize - meta.chunkSize * (totalChunks - 1) : meta.chunkSize;
-    if (data.length !== expected) throw new BadRequestException(`Chunk ${index} must be ${expected} bytes`);
+    if (!Number.isInteger(index) || index < 0 || index >= totalChunks)
+      throw new BadRequestException('Chunk index out of range');
+    const expected =
+      index === totalChunks - 1
+        ? meta.totalSize - meta.chunkSize * (totalChunks - 1)
+        : meta.chunkSize;
+    if (data.length !== expected)
+      throw new BadRequestException(`Chunk ${index} must be ${expected} bytes`);
     // Write to a temp name then rename, so a half-written chunk is never counted as received.
     const target = path.join(this.dir(uploadId), `${index}.part`);
     const tmp = `${target}.tmp`;
@@ -106,9 +129,15 @@ export class ChunkedUploadService {
     return this.statusOf(uploadId, meta);
   }
 
-  async putThumbnail(userId: string, conversationId: string, uploadId: string, data: Buffer): Promise<void> {
+  async putThumbnail(
+    userId: string,
+    conversationId: string,
+    uploadId: string,
+    data: Buffer,
+  ): Promise<void> {
     await this.loadMeta(userId, conversationId, uploadId);
-    if (data.length === 0 || data.length > 2 * 1024 * 1024) throw new BadRequestException('Invalid thumbnail');
+    if (data.length === 0 || data.length > 2 * 1024 * 1024)
+      throw new BadRequestException('Invalid thumbnail');
     await fs.promises.writeFile(path.join(this.dir(uploadId), 'thumbnail.bin'), data);
   }
 
@@ -116,10 +145,13 @@ export class ChunkedUploadService {
     const meta = await this.loadMeta(userId, conversationId, uploadId);
     const status = await this.statusOf(uploadId, meta);
     if (status.received.length !== status.totalChunks) {
-      throw new BadRequestException('Upload incomplete: ' + (status.totalChunks - status.received.length) + ' chunk(s) missing');
+      throw new BadRequestException(
+        'Upload incomplete: ' + (status.totalChunks - status.received.length) + ' chunk(s) missing',
+      );
     }
     const parts: Buffer[] = [];
-    for (let i = 0; i < status.totalChunks; i++) parts.push(await fs.promises.readFile(path.join(this.dir(uploadId), `${i}.part`)));
+    for (let i = 0; i < status.totalChunks; i++)
+      parts.push(await fs.promises.readFile(path.join(this.dir(uploadId), `${i}.part`)));
     const buffer = Buffer.concat(parts);
     const thumbPath = path.join(this.dir(uploadId), 'thumbnail.bin');
     const thumbnailBuffer = fs.existsSync(thumbPath) ? await fs.promises.readFile(thumbPath) : null;
@@ -143,12 +175,21 @@ export class ChunkedUploadService {
   async purgeStale(): Promise<number> {
     let removed = 0;
     let names: string[] = [];
-    try { names = await fs.promises.readdir(this.root); } catch { return 0; }
+    try {
+      names = await fs.promises.readdir(this.root);
+    } catch {
+      return 0;
+    }
     for (const name of names) {
       try {
         const stat = await fs.promises.stat(path.join(this.root, name));
-        if (Date.now() - stat.mtimeMs > STALE_AFTER_MS) { await this.remove(name); removed++; }
-      } catch { /* raced with another cleanup */ }
+        if (Date.now() - stat.mtimeMs > STALE_AFTER_MS) {
+          await this.remove(name);
+          removed++;
+        }
+      } catch {
+        /* raced with another cleanup */
+      }
     }
     return removed;
   }
@@ -163,15 +204,22 @@ export class ChunkedUploadService {
     await fs.promises.rm(this.dir(uploadId), { recursive: true, force: true });
   }
 
-  private async loadMeta(userId: string, conversationId: string, uploadId: string): Promise<UploadMeta> {
+  private async loadMeta(
+    userId: string,
+    conversationId: string,
+    uploadId: string,
+  ): Promise<UploadMeta> {
     let meta: UploadMeta;
     try {
-      meta = JSON.parse(await fs.promises.readFile(path.join(this.dir(uploadId), 'meta.json'), 'utf8')) as UploadMeta;
+      meta = JSON.parse(
+        await fs.promises.readFile(path.join(this.dir(uploadId), 'meta.json'), 'utf8'),
+      ) as UploadMeta;
     } catch {
       throw new NotFoundException('Upload not found');
     }
     // 404, not 403: same policy as the rest of the API, never reveal that someone else's upload exists.
-    if (meta.userId !== userId || meta.conversationId !== conversationId) throw new NotFoundException('Upload not found');
+    if (meta.userId !== userId || meta.conversationId !== conversationId)
+      throw new NotFoundException('Upload not found');
     return meta;
   }
 
@@ -183,6 +231,12 @@ export class ChunkedUploadService {
       .map((f) => parseInt(f, 10))
       .filter((i) => i < totalChunks)
       .sort((a, b) => a - b);
-    return { uploadId, totalSize: meta.totalSize, chunkSize: meta.chunkSize, totalChunks, received };
+    return {
+      uploadId,
+      totalSize: meta.totalSize,
+      chunkSize: meta.chunkSize,
+      totalChunks,
+      received,
+    };
   }
 }

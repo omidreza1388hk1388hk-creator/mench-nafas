@@ -102,21 +102,48 @@ export type ServerToClientEvent =
   /** Body edit only — deletion has its own, cheaper event below rather than re-sending the whole (now-empty) message. */
   | { type: 'message.updated'; message: MessageDto }
   | { type: 'message.deleted'; conversationId: string; messageId: string; deletedAt: string }
-  | { type: 'reaction.updated'; conversationId: string; messageId: string; reactions: ReactionSummary[] }
-  | { type: 'message.delivered'; conversationId: string; userId: string; lastDeliveredSequence: number }
+  | {
+      type: 'reaction.updated';
+      conversationId: string;
+      messageId: string;
+      reactions: ReactionSummary[];
+    }
+  | {
+      type: 'message.delivered';
+      conversationId: string;
+      userId: string;
+      lastDeliveredSequence: number;
+    }
   | { type: 'message.read'; conversationId: string; userId: string; lastReadSequence: number }
   /** Phase 9 — a shared 'us' date changed; sent to every member so both phones show the same counter. */
-  | { type: 'us.updated'; conversationId: string; togetherSince: string | null; nextMeetDate: string | null }
+  | {
+      type: 'us.updated';
+      conversationId: string;
+      togetherSince: string | null;
+      nextMeetDate: string | null;
+    }
   /** Phase 11 — the pinned message of a conversation changed (messageId null = unpinned). */
   | { type: 'pin.changed'; conversationId: string; messageId: string | null }
   /** Phase 4C — the disappearing-messages timer of a conversation changed (seconds null = off). */
-  | { type: 'conversation.disappearing_changed'; conversationId: string; seconds: number | null; changedBy: string }
+  | {
+      type: 'conversation.disappearing_changed';
+      conversationId: string;
+      seconds: number | null;
+      changedBy: string;
+    }
   /** Phase 11 — the partner answered today's question. */
   | { type: 'question.answered'; conversationId: string }
   /** Phase 11 — the shared wishlist changed. */
   | { type: 'wishlist.changed'; conversationId: string }
   /** Phase 9 — the partner set today's mood. */
-  | { type: 'mood.changed'; conversationId: string; userId: string; emoji: string; text: string | null; setAt: string }
+  | {
+      type: 'mood.changed';
+      conversationId: string;
+      userId: string;
+      emoji: string;
+      text: string | null;
+      setAt: string;
+    }
   /** Phase 9 — the shared memories list changed (added/removed by the partner); reload it. */
   | { type: 'memory.changed'; conversationId: string }
   /** Phase 9 — a hug or kiss from the partner; never persisted, the client plays an animation + vibration. */

@@ -4,13 +4,13 @@ describe('ExpirySweeper', () => {
   it('broadcasts message.deleted to every member of each affected conversation', async () => {
     const at = new Date('2026-10-04T10:00:00Z');
     const repo = {
-      sweepExpired: jest
+      sweepExpired: jest.fn().mockResolvedValueOnce([
+        { id: 'm1', conversation_id: 'c1', deleted_at: at },
+        { id: 'm2', conversation_id: 'c2', deleted_at: at },
+      ]),
+      memberIds: jest
         .fn()
-        .mockResolvedValueOnce([
-          { id: 'm1', conversation_id: 'c1', deleted_at: at },
-          { id: 'm2', conversation_id: 'c2', deleted_at: at },
-        ]),
-      memberIds: jest.fn().mockImplementation(async (c: string) => (c === 'c1' ? ['a', 'b'] : ['c', 'd'])),
+        .mockImplementation(async (c: string) => (c === 'c1' ? ['a', 'b'] : ['c', 'd'])),
     };
     const broadcaster = { broadcastToUsers: jest.fn(), isUserConnected: jest.fn() };
     const sweeper = new ExpirySweeper(repo as never, broadcaster as never);

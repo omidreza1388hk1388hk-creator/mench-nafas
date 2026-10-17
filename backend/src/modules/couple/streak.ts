@@ -14,8 +14,13 @@ function dayNumber(isoDate: string): number {
  *           is not complete yet (so the streak stays alive until the day is over).
  * best    — the longest run ever.
  */
-export function computeStreak(bothAnsweredDates: string[], today: string): { current: number; best: number } {
-  const days = [...new Set(bothAnsweredDates.map(dayNumber).filter((n) => !Number.isNaN(n)))].sort((a, b) => a - b);
+export function computeStreak(
+  bothAnsweredDates: string[],
+  today: string,
+): { current: number; best: number } {
+  const days = [...new Set(bothAnsweredDates.map(dayNumber).filter((n) => !Number.isNaN(n)))].sort(
+    (a, b) => a - b,
+  );
   if (days.length === 0) return { current: 0, best: 0 };
 
   let best = 1;

@@ -1,5 +1,6 @@
 package com.omidgame.mench.feature.auth.presentation
 
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable

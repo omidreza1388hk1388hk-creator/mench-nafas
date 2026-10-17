@@ -52,8 +52,13 @@ describe('CallsService', () => {
     } as unknown as jest.Mocked<ConversationsRepository>;
 
     users = { findById: jest.fn() } as unknown as jest.Mocked<UsersService>;
-    iceServers = { build: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IceServersService>;
-    broadcaster = { broadcastToUsers: jest.fn(), isUserConnected: jest.fn() } as unknown as jest.Mocked<RealtimeBroadcaster>;
+    iceServers = {
+      build: jest.fn().mockReturnValue([]),
+    } as unknown as jest.Mocked<IceServersService>;
+    broadcaster = {
+      broadcastToUsers: jest.fn(),
+      isUserConnected: jest.fn(),
+    } as unknown as jest.Mocked<RealtimeBroadcaster>;
 
     service = new CallsService(calls, conversations, users, iceServers, broadcaster);
   });
@@ -61,14 +66,18 @@ describe('CallsService', () => {
   describe('initiate', () => {
     it('rejects when the caller is not a member of the conversation', async () => {
       conversations.isMember.mockResolvedValue(false);
-      await expect(service.initiate(callerId, conversationId, 'voice')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.initiate(callerId, conversationId, 'voice')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
       expect(calls.create).not.toHaveBeenCalled();
     });
 
     it('rejects group conversations — 1:1 only for this phase', async () => {
       conversations.isMember.mockResolvedValue(true);
       conversations.isGroup.mockResolvedValue(true);
-      await expect(service.initiate(callerId, conversationId, 'voice')).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.initiate(callerId, conversationId, 'voice')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(calls.create).not.toHaveBeenCalled();
     });
 
@@ -81,7 +90,11 @@ describe('CallsService', () => {
         display_name: 'Callee',
       });
       calls.create.mockResolvedValue(ringingCall);
-      users.findById.mockResolvedValue({ id: callerId, display_name: 'Caller', phone_e164: '+15550000000' } as any);
+      users.findById.mockResolvedValue({
+        id: callerId,
+        display_name: 'Caller',
+        phone_e164: '+15550000000',
+      } as any);
 
       const result = await service.initiate(callerId, conversationId, 'voice');
 
@@ -107,7 +120,11 @@ describe('CallsService', () => {
 
     it('accepts and notifies the caller', async () => {
       calls.findById.mockResolvedValue(ringingCall);
-      calls.markAccepted.mockResolvedValue({ ...ringingCall, status: 'active', answered_at: new Date() });
+      calls.markAccepted.mockResolvedValue({
+        ...ringingCall,
+        status: 'active',
+        answered_at: new Date(),
+      });
 
       await service.accept(callId, calleeId);
 
@@ -129,7 +146,11 @@ describe('CallsService', () => {
     });
 
     it('notifies whichever party did not hang up', async () => {
-      calls.findById.mockResolvedValue({ ...ringingCall, status: 'active', answered_at: new Date() });
+      calls.findById.mockResolvedValue({
+        ...ringingCall,
+        status: 'active',
+        answered_at: new Date(),
+      });
       calls.markEnded.mockResolvedValue({
         ...ringingCall,
         status: 'ended',

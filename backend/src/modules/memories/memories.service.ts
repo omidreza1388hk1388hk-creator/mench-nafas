@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { MemoriesRepository, MemoryRow } from './memories.repository';
 
 export interface MemoryDto {
@@ -52,8 +61,14 @@ export class MemoriesService {
       throw new BadRequestException('Invalid memoryDate');
     }
     if (dto.attachmentId) {
-      const ok = await this.memoriesRepository.isImageAttachmentOfConversation(dto.attachmentId, conversationId);
-      if (!ok) throw new BadRequestException('attachmentId must be an image uploaded to this conversation');
+      const ok = await this.memoriesRepository.isImageAttachmentOfConversation(
+        dto.attachmentId,
+        conversationId,
+      );
+      if (!ok)
+        throw new BadRequestException(
+          'attachmentId must be an image uploaded to this conversation',
+        );
     }
     const row = await this.memoriesRepository.create(conversationId, userId, {
       title: dto.title.trim(),
@@ -68,8 +83,10 @@ export class MemoriesService {
   async remove(conversationId: string, memoryId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const memory = await this.memoriesRepository.findById(memoryId);
-    if (!memory || memory.conversation_id !== conversationId) throw new NotFoundException('Memory not found');
-    if (memory.author_id !== userId) throw new ForbiddenException('Only the author can delete a memory');
+    if (!memory || memory.conversation_id !== conversationId)
+      throw new NotFoundException('Memory not found');
+    if (memory.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a memory');
     await this.memoriesRepository.delete(memoryId);
     await this.notifyChanged(conversationId, userId);
   }

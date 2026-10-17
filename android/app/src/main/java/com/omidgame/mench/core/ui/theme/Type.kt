@@ -32,7 +32,7 @@ private fun loadBundledFontFamily(context: Context): FontFamily? = runCatching {
     val assets = context.assets
     val present = assets.list("fonts")?.toSet().orEmpty()
     fun font(file: String, weight: FontWeight) =
-        if (file in present) androidx.compose.ui.text.font.Font(assets, "fonts/$file", weight) else null
+        if (file in present) androidx.compose.ui.text.font.Font("fonts/$file", assets, weight) else null
     val fonts = listOfNotNull(
         font("Vazirmatn-Light.ttf", FontWeight.Light),
         font("Vazirmatn-Regular.ttf", FontWeight.Normal),

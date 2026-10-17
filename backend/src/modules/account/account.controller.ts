@@ -1,8 +1,20 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { AccountService } from './account.service';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
+import { PrivacyService } from '../privacy/privacy.service';
 
 class BlockDto {
   @IsUUID() userId!: string;
@@ -18,14 +30,26 @@ class FeedbackDto {
   @IsOptional() @IsString() @MaxLength(60000) logs?: string;
 }
 class EventDto {
-  @IsString() @IsIn(['app_open', 'onboarding_completed', 'onboarding_skipped', 'invite_shared', 'qr_scanned', 'message_sent', 'call_started'])
+  @IsString()
+  @IsIn([
+    'app_open',
+    'onboarding_completed',
+    'onboarding_skipped',
+    'invite_shared',
+    'qr_scanned',
+    'message_sent',
+    'call_started',
+  ])
   name!: string;
 }
 
 @UseGuards(JwtAuthGuard)
 @Controller()
 export class AccountController {
-  constructor(private readonly service: AccountService) {}
+  constructor(
+    private readonly service: AccountService,
+    private readonly privacy: PrivacyService,
+  ) {}
 
   @Get('account/invite')
   myInvite(@Req() req: any) {
@@ -33,14 +57,18 @@ export class AccountController {
   }
 
   @Get('account/invite/:code')
-  resolveInvite(@Param('code') code: string) {
-    return this.service.resolveInvite(code);
+  async resolveInvite(@Req() req: any, @Param('code') code: string) {
+    const found = await this.service.resolveInvite(code);
+    await this.privacy.assertDiscoverable(found.id, req.user.sub); // "who can find me"
+    return found;
   }
 
   @Get('account/by-username/:username')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  byUsername(@Param('username') username: string) {
-    return this.service.byUsername(username);
+  async byUsername(@Req() req: any, @Param('username') username: string) {
+    const found = await this.service.byUsername(username);
+    await this.privacy.assertDiscoverable(found.id, req.user.sub); // "who can find me"
+    return found;
   }
 
   @Get('account/blocks')

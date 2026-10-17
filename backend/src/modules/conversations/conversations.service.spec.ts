@@ -1,6 +1,10 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
-import { ConversationsRepository, ConversationRow, OtherMemberRow } from './conversations.repository';
+import {
+  ConversationsRepository,
+  ConversationRow,
+  OtherMemberRow,
+} from './conversations.repository';
 import { UsersService } from '../users/users.service';
 import { RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -153,13 +157,17 @@ describe('ConversationsService', () => {
   });
 
   it('createGroup rejects a blank title', async () => {
-    await expect(service.createGroup(userA, '   ', [userB])).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.createGroup(userA, '   ', [userB])).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(repo.createGroup).not.toHaveBeenCalled();
   });
 
   it('createGroup rejects when a proposed member does not exist', async () => {
     users.findManyByIds.mockResolvedValue([]); // requested [userB], found none
-    await expect(service.createGroup(userA, 'Trip planning', [userB])).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.createGroup(userA, 'Trip planning', [userB])).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     expect(repo.createGroup).not.toHaveBeenCalled();
   });
 
@@ -189,19 +197,33 @@ describe('ConversationsService', () => {
 
     repo.removeMember.mockClear();
     repo.getRole.mockResolvedValueOnce('admin').mockResolvedValueOnce('admin');
-    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     repo.getRole.mockResolvedValueOnce('admin').mockResolvedValueOnce('owner');
-    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(repo.removeMember).not.toHaveBeenCalled();
   });
 
   it('adding members and renaming respect the group permissions', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
-    repo.getGroupSettings.mockResolvedValue({ sendMessages: 'all', addMembers: 'admins', editInfo: 'admins', pinMessages: 'all', slowModeSeconds: 0 });
+    repo.getGroupSettings.mockResolvedValue({
+      sendMessages: 'all',
+      addMembers: 'admins',
+      editInfo: 'admins',
+      pinMessages: 'all',
+      slowModeSeconds: 0,
+    });
     repo.getRole.mockResolvedValue('member');
-    await expect(service.addMembers('conv-3', userA, [userB])).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.renameGroup('conv-3', userA, 'New')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.addMembers('conv-3', userA, [userB])).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(service.renameGroup('conv-3', userA, 'New')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(repo.addMembers).not.toHaveBeenCalled();
     expect(repo.updateTitle).not.toHaveBeenCalled();
   });
@@ -222,7 +244,9 @@ describe('ConversationsService', () => {
     repo.isGroup.mockResolvedValue(true);
     repo.getRole.mockResolvedValue('member');
 
-    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeMember('conv-3', userA, userB)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(repo.removeMember).not.toHaveBeenCalled();
   });
 
@@ -230,7 +254,9 @@ describe('ConversationsService', () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(false);
 
-    await expect(service.removeMember('conv-1', userA, userA)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.removeMember('conv-1', userA, userA)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   // --- Phase 6: realtime broadcasts on group mutations ---
@@ -254,10 +280,12 @@ describe('ConversationsService', () => {
 
     await service.addMembers('conv-3', userA, [userB]);
 
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userA, userB],
-      { type: 'group.member_added', conversationId: 'conv-3', userId: userB, addedBy: userA },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA, userB], {
+      type: 'group.member_added',
+      conversationId: 'conv-3',
+      userId: userB,
+      addedBy: userA,
+    });
     expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
       [userB],
       expect.objectContaining({ type: 'conversation.added' }),
@@ -278,10 +306,12 @@ describe('ConversationsService', () => {
 
     await service.removeMember('conv-3', userA, userB);
 
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userA, userB],
-      { type: 'group.member_removed', conversationId: 'conv-3', userId: userB, removedBy: userA },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA, userB], {
+      type: 'group.member_removed',
+      conversationId: 'conv-3',
+      userId: userB,
+      removedBy: userA,
+    });
   });
 
   it('removeMember (self) broadcasts group.member_left instead of group.member_removed', async () => {
@@ -291,10 +321,11 @@ describe('ConversationsService', () => {
 
     await service.removeMember('conv-3', userB, userB);
 
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userA, userB],
-      { type: 'group.member_left', conversationId: 'conv-3', userId: userB },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA, userB], {
+      type: 'group.member_left',
+      conversationId: 'conv-3',
+      userId: userB,
+    });
   });
 
   it('renameGroup broadcasts group.renamed to every current member after the write commits', async () => {
@@ -306,10 +337,12 @@ describe('ConversationsService', () => {
     await service.renameGroup('conv-3', userA, '  New Title  ');
 
     expect(repo.updateTitle).toHaveBeenCalledWith('conv-3', 'New Title');
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userA, userB],
-      { type: 'group.renamed', conversationId: 'conv-3', title: 'New Title', renamedBy: userA },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA, userB], {
+      type: 'group.renamed',
+      conversationId: 'conv-3',
+      title: 'New Title',
+      renamedBy: userA,
+    });
   });
 
   it('sendHeartbeat broadcasts a live heartbeat to the partner only, with no push, and reports whether they were online', async () => {
@@ -320,10 +353,12 @@ describe('ConversationsService', () => {
 
     const result = await service.sendHeartbeat('conv-1', userA, 4000);
 
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userB],
-      { type: 'heartbeat', conversationId: 'conv-1', from: userA, durationMs: 4000 },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], {
+      type: 'heartbeat',
+      conversationId: 'conv-1',
+      from: userA,
+      durationMs: 4000,
+    });
     expect(result).toEqual({ delivered: true });
     expect(notifications.notifyNewMessage).not.toHaveBeenCalled();
   });
@@ -334,14 +369,18 @@ describe('ConversationsService', () => {
     repo.listOtherMemberIds.mockResolvedValue([userB]);
     broadcaster.isUserConnected.mockReturnValue(false);
 
-    await expect(service.sendHeartbeat('conv-1', userA, 2000)).resolves.toEqual({ delivered: false });
+    await expect(service.sendHeartbeat('conv-1', userA, 2000)).resolves.toEqual({
+      delivered: false,
+    });
   });
 
   it('sendHeartbeat is rejected in a group conversation', async () => {
     repo.isMember.mockResolvedValue(true);
     repo.isGroup.mockResolvedValue(true);
 
-    await expect(service.sendHeartbeat('conv-3', userA, 2000)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.sendHeartbeat('conv-3', userA, 2000)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(broadcaster.broadcastToUsers).not.toHaveBeenCalled();
   });
 
@@ -351,18 +390,29 @@ describe('ConversationsService', () => {
 
     await service.sendScreenEffect('conv-1', userA, 'confetti');
 
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [userB],
-      { type: 'screen_effect', conversationId: 'conv-1', from: userA, effect: 'confetti' },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], {
+      type: 'screen_effect',
+      conversationId: 'conv-1',
+      from: userA,
+      effect: 'confetti',
+    });
 
     repo.isMember.mockResolvedValue(false);
-    await expect(service.sendScreenEffect('conv-9', userA, 'hearts')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.sendScreenEffect('conv-9', userA, 'hearts')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
 
 describe('ConversationsService.getOrCreateSaved', () => {
-  const row = { id: 'saved-1', kind: 'saved', title: null, created_by: 'u1', created_at: new Date('2026-10-07T00:00:00Z'), last_message_at: null };
+  const row = {
+    id: 'saved-1',
+    kind: 'saved',
+    title: null,
+    created_by: 'u1',
+    created_at: new Date('2026-10-07T00:00:00Z'),
+    last_message_at: null,
+  };
   const make = (repo: Record<string, jest.Mock>) => {
     const service: any = Object.create(ConversationsService.prototype);
     service.conversationsRepository = repo;
@@ -377,7 +427,10 @@ describe('ConversationsService.getOrCreateSaved', () => {
   });
 
   it('creates it on first use', async () => {
-    const repo = { findSavedFor: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(row), createSaved: jest.fn().mockResolvedValue(row) };
+    const repo = {
+      findSavedFor: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(row),
+      createSaved: jest.fn().mockResolvedValue(row),
+    };
     await expect(make(repo).getOrCreateSaved('u1')).resolves.toMatchObject({ id: 'saved-1' });
     expect(repo.createSaved).toHaveBeenCalledWith('u1');
   });

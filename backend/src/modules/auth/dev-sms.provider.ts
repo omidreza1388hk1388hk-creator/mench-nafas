@@ -12,8 +12,6 @@ export class DevSmsProvider implements SmsProvider {
   private readonly logger = new Logger('DevSmsProvider');
 
   async sendOtp(phoneE164: string, code: string): Promise<void> {
-    this.logger.warn(
-      `[DEV ONLY] OTP for ${phoneE164}: ${code} — not sent via real SMS`,
-    );
+    this.logger.warn(`[DEV ONLY] OTP for ${phoneE164}: ${code} — not sent via real SMS`);
   }
 }

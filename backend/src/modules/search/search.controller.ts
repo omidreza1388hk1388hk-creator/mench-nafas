@@ -10,6 +10,12 @@ export class SearchController {
 
   @Get()
   search(@Req() req: any, @Query() query: SearchQueryDto) {
-    return this.searchService.search(req.user.sub, query.q, query.scope, query.conversationId, query.limit);
+    return this.searchService.search(
+      req.user.sub,
+      query.q,
+      query.scope,
+      query.conversationId,
+      query.limit,
+    );
   }
 }

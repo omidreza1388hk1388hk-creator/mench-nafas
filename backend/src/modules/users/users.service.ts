@@ -16,7 +16,11 @@ export class UsersService {
   async setAvatar(userId: string, image: Buffer): Promise<UserRow> {
     let processed: Buffer;
     try {
-      processed = await sharp(image).rotate().resize(256, 256, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer();
+      processed = await sharp(image)
+        .rotate()
+        .resize(256, 256, { fit: 'cover' })
+        .jpeg({ quality: 82 })
+        .toBuffer();
     } catch {
       throw new BadRequestException('Not a valid image');
     }
@@ -44,7 +48,10 @@ export class UsersService {
 
   /** Phase 4C: a key is only handed out to yourself or someone you share a conversation with. */
   async getE2eeKey(requesterId: string, targetUserId: string): Promise<string | null> {
-    if (requesterId !== targetUserId && !(await this.usersRepository.sharesConversation(requesterId, targetUserId))) {
+    if (
+      requesterId !== targetUserId &&
+      !(await this.usersRepository.sharesConversation(requesterId, targetUserId))
+    ) {
       throw new NotFoundException('User not found');
     }
     return this.usersRepository.getE2eeKey(targetUserId);

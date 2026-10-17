@@ -6,7 +6,14 @@ const userB = 'user-b';
 const blob = 'v1:QUJDREVGR0hJSktMTU5PUA==';
 
 function row(over: Record<string, unknown> = {}) {
-  return { id: 'v-1', conversation_id: 'conv-1', author_id: userA, blob, created_at: new Date('2026-01-01T00:00:00Z'), ...over };
+  return {
+    id: 'v-1',
+    conversation_id: 'conv-1',
+    author_id: userA,
+    blob,
+    created_at: new Date('2026-01-01T00:00:00Z'),
+    ...over,
+  };
 }
 
 describe('VaultService', () => {
@@ -16,7 +23,13 @@ describe('VaultService', () => {
   let service: VaultService;
 
   beforeEach(() => {
-    vault = { list: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), create: jest.fn(), findById: jest.fn(), delete: jest.fn() };
+    vault = {
+      list: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn(),
+      findById: jest.fn(),
+      delete: jest.fn(),
+    };
     conversations = {
       isMember: jest.fn().mockResolvedValue(true),
       isGroup: jest.fn().mockResolvedValue(false),
@@ -37,7 +50,10 @@ describe('VaultService', () => {
     vault.create.mockResolvedValue(row());
     await service.create('conv-1', userA, blob);
     expect(vault.create).toHaveBeenCalledWith('conv-1', userA, blob);
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], { type: 'vault.changed', conversationId: 'conv-1' });
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], {
+      type: 'vault.changed',
+      conversationId: 'conv-1',
+    });
   });
 
   it('enforces the cap', async () => {

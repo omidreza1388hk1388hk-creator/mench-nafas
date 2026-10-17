@@ -31,11 +31,19 @@ export class AlbumRepository {
   }
 
   async count(conversationId: string): Promise<number> {
-    const { rows } = await this.pool.query<{ n: string }>('SELECT COUNT(*)::text AS n FROM album_items WHERE conversation_id = $1', [conversationId]);
+    const { rows } = await this.pool.query<{ n: string }>(
+      'SELECT COUNT(*)::text AS n FROM album_items WHERE conversation_id = $1',
+      [conversationId],
+    );
     return Number(rows[0].n);
   }
 
-  async create(conversationId: string, authorId: string, attachmentId: string, caption: string): Promise<AlbumRow> {
+  async create(
+    conversationId: string,
+    authorId: string,
+    attachmentId: string,
+    caption: string,
+  ): Promise<AlbumRow> {
     const { rows } = await this.pool.query<AlbumRow>(
       `INSERT INTO album_items (conversation_id, author_id, attachment_id, caption) VALUES ($1, $2, $3, $4)
        RETURNING *, NULL::text AS my_reaction, NULL::text AS other_reaction`,
@@ -44,14 +52,22 @@ export class AlbumRepository {
     return rows[0];
   }
 
-  async findById(itemId: string): Promise<{ id: string; conversation_id: string; author_id: string } | null> {
-    const { rows } = await this.pool.query('SELECT id, conversation_id, author_id FROM album_items WHERE id = $1', [itemId]);
+  async findById(
+    itemId: string,
+  ): Promise<{ id: string; conversation_id: string; author_id: string } | null> {
+    const { rows } = await this.pool.query(
+      'SELECT id, conversation_id, author_id FROM album_items WHERE id = $1',
+      [itemId],
+    );
     return rows[0] ?? null;
   }
 
   async setReaction(itemId: string, userId: string, emoji: string | null): Promise<void> {
     if (emoji === null) {
-      await this.pool.query('DELETE FROM album_reactions WHERE item_id = $1 AND user_id = $2', [itemId, userId]);
+      await this.pool.query('DELETE FROM album_reactions WHERE item_id = $1 AND user_id = $2', [
+        itemId,
+        userId,
+      ]);
     } else {
       await this.pool.query(
         `INSERT INTO album_reactions (item_id, user_id, emoji) VALUES ($1, $2, $3)

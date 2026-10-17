@@ -18,7 +18,13 @@ export interface InviteRow {
 export class GroupAdminRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async createInvite(input: { conversationId: string; code: string; createdBy: string; expiresAt: Date | null; maxUses: number | null }): Promise<InviteRow> {
+  async createInvite(input: {
+    conversationId: string;
+    code: string;
+    createdBy: string;
+    expiresAt: Date | null;
+    maxUses: number | null;
+  }): Promise<InviteRow> {
     const { rows } = await this.pool.query<InviteRow>(
       `INSERT INTO conversation_invites (conversation_id, code, created_by, expires_at, max_uses)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -53,7 +59,10 @@ export class GroupAdminRepository {
   }
 
   async findByCode(code: string): Promise<InviteRow | null> {
-    const { rows } = await this.pool.query<InviteRow>(`SELECT * FROM conversation_invites WHERE code = $1`, [code]);
+    const { rows } = await this.pool.query<InviteRow>(
+      `SELECT * FROM conversation_invites WHERE code = $1`,
+      [code],
+    );
     return rows[0] ?? null;
   }
 
@@ -68,7 +77,10 @@ export class GroupAdminRepository {
   }
 
   async memberCount(conversationId: string): Promise<number> {
-    const { rows } = await this.pool.query<{ n: string }>(`SELECT COUNT(*) AS n FROM conversation_members WHERE conversation_id = $1`, [conversationId]);
+    const { rows } = await this.pool.query<{ n: string }>(
+      `SELECT COUNT(*) AS n FROM conversation_members WHERE conversation_id = $1`,
+      [conversationId],
+    );
     return Number(rows[0].n);
   }
 }

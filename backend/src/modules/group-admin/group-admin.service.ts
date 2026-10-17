@@ -1,12 +1,28 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { ConversationsService } from '../conversations/conversations.service';
 import { toConversationDto } from '../conversations/conversation.dto';
 import {
-  canChangeRole, DEFAULT_GROUP_SETTINGS, GroupSettings, inviteProblem, isAdmin, parseSettingsPatch, toRole,
+  canChangeRole,
+  DEFAULT_GROUP_SETTINGS,
+  GroupSettings,
+  inviteProblem,
+  isAdmin,
+  parseSettingsPatch,
+  toRole,
 } from '../conversations/group-policy';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { GroupAdminRepository, InviteRow } from './group-admin.repository';
 
 export const MAX_ACTIVE_INVITES = 10;
@@ -45,7 +61,10 @@ export function generateInviteCode(bytes: Buffer = randomBytes(12)): string {
 }
 
 export function normalizeInviteCode(raw: string): string {
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
 }
 
 export function toInviteDto(row: InviteRow): InviteDto {
@@ -85,11 +104,17 @@ export class GroupAdminService {
 
   async getInfo(conversationId: string, userId: string): Promise<GroupInfoDto> {
     const role = await this.requireGroupRole(conversationId, userId);
-    const settings = (await this.conversationsRepository.getGroupSettings(conversationId)) ?? DEFAULT_GROUP_SETTINGS;
+    const settings =
+      (await this.conversationsRepository.getGroupSettings(conversationId)) ??
+      DEFAULT_GROUP_SETTINGS;
     return { ...settings, myRole: role ?? 'member', isChannel: settings.sendMessages === 'admins' };
   }
 
-  async updateSettings(conversationId: string, userId: string, input: Record<string, unknown>): Promise<GroupInfoDto> {
+  async updateSettings(
+    conversationId: string,
+    userId: string,
+    input: Record<string, unknown>,
+  ): Promise<GroupInfoDto> {
     await this.requireAdmin(conversationId, userId);
     const patch = parseSettingsPatch(input);
     if (!patch) throw new BadRequestException('No valid settings to change');
@@ -97,16 +122,30 @@ export class GroupAdminService {
     return this.getInfo(conversationId, userId);
   }
 
-  async changeRole(conversationId: string, actorId: string, targetUserId: string, newRole: string): Promise<void> {
+  async changeRole(
+    conversationId: string,
+    actorId: string,
+    targetUserId: string,
+    newRole: string,
+  ): Promise<void> {
     const actor = await this.requireGroupRole(conversationId, actorId);
     const target = toRole(await this.conversationsRepository.getRole(conversationId, targetUserId));
     if (target === null) throw new NotFoundException('That person is not in this group');
-    if (!canChangeRole(actor, target, newRole)) throw new ForbiddenException('Only the owner can change roles (not their own)');
-    await this.conversationsRepository.setRole(conversationId, targetUserId, newRole as 'admin' | 'member');
+    if (!canChangeRole(actor, target, newRole))
+      throw new ForbiddenException('Only the owner can change roles (not their own)');
+    await this.conversationsRepository.setRole(
+      conversationId,
+      targetUserId,
+      newRole as 'admin' | 'member',
+    );
   }
 
   /** Only the current owner can hand the group over, and only to someone who is already a member. */
-  async transferOwnership(conversationId: string, actorId: string, targetUserId: string): Promise<void> {
+  async transferOwnership(
+    conversationId: string,
+    actorId: string,
+    targetUserId: string,
+  ): Promise<void> {
     const actor = await this.requireGroupRole(conversationId, actorId);
     if (actor !== 'owner') throw new ForbiddenException('Only the owner can transfer ownership');
     if (targetUserId === actorId) throw new BadRequestException('You already own this group');
@@ -115,12 +154,18 @@ export class GroupAdminService {
     await this.conversationsRepository.transferOwnership(conversationId, actorId, targetUserId);
   }
 
-  async createInvite(conversationId: string, userId: string, input: { expiresInHours?: number; maxUses?: number }): Promise<InviteDto> {
+  async createInvite(
+    conversationId: string,
+    userId: string,
+    input: { expiresInHours?: number; maxUses?: number },
+  ): Promise<InviteDto> {
     await this.requireAdmin(conversationId, userId);
     if ((await this.repository.countActiveInvites(conversationId)) >= MAX_ACTIVE_INVITES) {
       throw new BadRequestException('Too many active invite links — revoke one first');
     }
-    const expiresAt = input.expiresInHours ? new Date(this.nowFn() + input.expiresInHours * 3600_000) : null;
+    const expiresAt = input.expiresInHours
+      ? new Date(this.nowFn() + input.expiresInHours * 3600_000)
+      : null;
     const row = await this.repository.createInvite({
       conversationId,
       code: generateInviteCode(),
@@ -138,7 +183,8 @@ export class GroupAdminService {
 
   async revokeInvite(conversationId: string, userId: string, inviteId: string): Promise<void> {
     await this.requireAdmin(conversationId, userId);
-    if (!(await this.repository.revokeInvite(conversationId, inviteId))) throw new NotFoundException('Invite not found');
+    if (!(await this.repository.revokeInvite(conversationId, inviteId)))
+      throw new NotFoundException('Invite not found');
   }
 
   async preview(rawCode: string): Promise<InvitePreviewDto> {
@@ -146,14 +192,22 @@ export class GroupAdminService {
     if (!invite) return { valid: false, problem: null, title: null, memberCount: 0 };
     const conversation = await this.conversationsRepository.findById(invite.conversation_id);
     const problem = this.problemOf(invite);
-    return { valid: problem === null, problem, title: conversation?.title ?? null, memberCount: await this.repository.memberCount(invite.conversation_id) };
+    return {
+      valid: problem === null,
+      problem,
+      title: conversation?.title ?? null,
+      memberCount: await this.repository.memberCount(invite.conversation_id),
+    };
   }
 
   async join(rawCode: string, userId: string) {
     const invite = await this.repository.findByCode(normalizeInviteCode(rawCode));
     if (!invite) throw new NotFoundException('Invite not found');
     const problem = this.problemOf(invite);
-    if (problem) throw new ConflictException(`This invite link is ${problem === 'used_up' ? 'used up' : problem}`);
+    if (problem)
+      throw new ConflictException(
+        `This invite link is ${problem === 'used_up' ? 'used up' : problem}`,
+      );
 
     const conversation = await this.conversationsRepository.findById(invite.conversation_id);
     if (!conversation) throw new NotFoundException('Group no longer exists');
@@ -161,7 +215,8 @@ export class GroupAdminService {
     const already = await this.conversationsRepository.getRole(invite.conversation_id, userId);
     if (already) return toConversationDto(conversation, null); // idempotent: joining twice is fine and costs no use
 
-    if (!(await this.repository.consumeUse(invite.id))) throw new ConflictException('This invite link is no longer valid');
+    if (!(await this.repository.consumeUse(invite.id)))
+      throw new ConflictException('This invite link is no longer valid');
     await this.conversationsRepository.addMembers(invite.conversation_id, [userId]);
 
     const memberIds = await this.conversationsRepository.listMemberIds(invite.conversation_id);

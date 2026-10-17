@@ -62,10 +62,10 @@ export class CallsRepository {
       // NULL joined_at is what distinguishes "was invited" from "was
       // actually connected", useful for future call-quality/analytics
       // work without touching this schema again.
-      await client.query(
-        `INSERT INTO call_participants (call_id, user_id) VALUES ($1, $2)`,
-        [call.id, calleeId],
-      );
+      await client.query(`INSERT INTO call_participants (call_id, user_id) VALUES ($1, $2)`, [
+        call.id,
+        calleeId,
+      ]);
       await client.query('COMMIT');
       return call;
     } catch (err) {
@@ -160,7 +160,11 @@ export class CallsRepository {
     return rows[0] ?? null;
   }
 
-  async listHistoryForUser(userId: string, before: Date | null, limit: number): Promise<CallHistoryRow[]> {
+  async listHistoryForUser(
+    userId: string,
+    before: Date | null,
+    limit: number,
+  ): Promise<CallHistoryRow[]> {
     const { rows } = await this.pool.query<CallHistoryRow>(
       `SELECT c.*,
               other.id AS other_user_id,

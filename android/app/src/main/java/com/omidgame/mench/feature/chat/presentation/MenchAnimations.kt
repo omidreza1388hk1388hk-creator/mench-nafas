@@ -1,5 +1,6 @@
 package com.omidgame.mench.feature.chat.presentation
 
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing

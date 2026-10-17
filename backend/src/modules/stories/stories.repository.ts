@@ -57,7 +57,14 @@ export class StoriesRepository {
     return Number(rows[0].n);
   }
 
-  async create(conversationId: string, authorId: string, body: string, emoji: string, palette: number, attachmentId: string | null = null): Promise<StoryRow> {
+  async create(
+    conversationId: string,
+    authorId: string,
+    body: string,
+    emoji: string,
+    palette: number,
+    attachmentId: string | null = null,
+  ): Promise<StoryRow> {
     const { rows } = await this.pool.query<StoryRow>(
       `INSERT INTO conversation_stories (conversation_id, author_id, body, emoji, palette, attachment_id)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -67,7 +74,9 @@ export class StoriesRepository {
     return rows[0];
   }
 
-  async findById(storyId: string): Promise<{ id: string; conversation_id: string; author_id: string; expires_at: Date } | null> {
+  async findById(
+    storyId: string,
+  ): Promise<{ id: string; conversation_id: string; author_id: string; expires_at: Date } | null> {
     const { rows } = await this.pool.query(
       'SELECT id, conversation_id, author_id, expires_at FROM conversation_stories WHERE id = $1',
       [storyId],

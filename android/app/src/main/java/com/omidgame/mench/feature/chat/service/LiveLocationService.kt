@@ -67,8 +67,10 @@ class LiveLocationService : Service() {
 
     private suspend fun run(conversationId: String, until: Long, firstFix: LatLon?) {
         val repo = EntryPointAccessors.fromApplication(applicationContext, LiveLocationEntryPoint::class.java).chatRepository()
-        var last = firstFix ?: LocationFetcher.current(applicationContext)
-        if (last == null) { finishSharing(); return }
+        val firstKnown = firstFix ?: LocationFetcher.current(applicationContext)
+        if (firstKnown == null) { finishSharing(); return }
+        // Non-null from here on; reassigned (never nulled) by each fresh fix below.
+        var last: LatLon = firstKnown
         val startBody = RichBody.encodeLiveLocation(last.latitude, last.longitude, until)
         val clientId = startBody?.let { repo.startLiveLocation(conversationId, it) }
         if (clientId == null) { finishSharing(); return }

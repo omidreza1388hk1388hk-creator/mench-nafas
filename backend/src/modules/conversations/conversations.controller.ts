@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CreateDirectConversationDto } from './dto/create-direct-conversation.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
@@ -137,7 +148,11 @@ export class ConversationsController {
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Body() dto: PinMessageDto,
   ) {
-    await this.conversationsService.setPinnedMessage(conversationId, req.user.sub, dto.messageId ?? null);
+    await this.conversationsService.setPinnedMessage(
+      conversationId,
+      req.user.sub,
+      dto.messageId ?? null,
+    );
     return { ok: true };
   }
 

@@ -27,7 +27,10 @@ export class AccountRepository {
 
   // ---- invite codes ----
   async getOrCreateInviteCode(userId: string): Promise<string> {
-    const existing = await this.pool.query<{ invite_code: string | null }>('SELECT invite_code FROM users WHERE id = $1', [userId]);
+    const existing = await this.pool.query<{ invite_code: string | null }>(
+      'SELECT invite_code FROM users WHERE id = $1',
+      [userId],
+    );
     if (existing.rows[0]?.invite_code) return existing.rows[0].invite_code;
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = makeInviteCode();
@@ -37,7 +40,10 @@ export class AccountRepository {
           [userId, code],
         );
         if (rows[0]) return rows[0].invite_code;
-        const again = await this.pool.query<{ invite_code: string }>('SELECT invite_code FROM users WHERE id = $1', [userId]);
+        const again = await this.pool.query<{ invite_code: string }>(
+          'SELECT invite_code FROM users WHERE id = $1',
+          [userId],
+        );
         if (again.rows[0]?.invite_code) return again.rows[0].invite_code;
       } catch (e: any) {
         if (e?.code !== '23505') throw e; // unique violation: collision, try another code
@@ -73,7 +79,10 @@ export class AccountRepository {
   }
 
   async unblock(blockerId: string, blockedId: string): Promise<void> {
-    await this.pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [blockerId, blockedId]);
+    await this.pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
+      blockerId,
+      blockedId,
+    ]);
   }
 
   async listBlocked(blockerId: string): Promise<Array<PublicUserRow & { blocked_at: Date }>> {
@@ -116,12 +125,21 @@ export class AccountRepository {
          FROM messages WHERE sender_id = $1 ORDER BY created_at ASC`,
       [userId],
     );
-    const blocks = await this.pool.query('SELECT blocked_id, created_at FROM user_blocks WHERE blocker_id = $1', [userId]);
-    const saved = await this.pool.query('SELECT kind, body, folder, tags, source_sender_name, source_created_at, created_at FROM saved_items WHERE user_id = $1 ORDER BY created_at', [userId]);
-    const planner = await this.pool.query('SELECT kind, title, note, due_at, repeat, location, checklist, completed_at, created_at FROM planner_items WHERE user_id = $1 ORDER BY created_at', [userId]);
+    const blocks = await this.pool.query(
+      'SELECT blocked_id, created_at FROM user_blocks WHERE blocker_id = $1',
+      [userId],
+    );
+    const saved = await this.pool.query(
+      'SELECT kind, body, folder, tags, source_sender_name, source_created_at, created_at FROM saved_items WHERE user_id = $1 ORDER BY created_at',
+      [userId],
+    );
+    const planner = await this.pool.query(
+      'SELECT kind, title, note, due_at, repeat, location, checklist, completed_at, created_at FROM planner_items WHERE user_id = $1 ORDER BY created_at',
+      [userId],
+    );
     return {
       exportedAt: new Date().toISOString(),
-      note: 'Contains your profile, conversation memberships and the messages YOU sent. Other people\'s messages are not included.',
+      note: "Contains your profile, conversation memberships and the messages YOU sent. Other people's messages are not included.",
       profile: profile.rows[0] ?? null,
       conversations: conversations.rows,
       messagesSent: messages.rows,
@@ -142,12 +160,16 @@ export class AccountRepository {
       await client.query('BEGIN');
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM devices WHERE user_id = $1', [userId]);
-      await client.query('DELETE FROM user_blocks WHERE blocker_id = $1 OR blocked_id = $1', [userId]);
+      await client.query('DELETE FROM user_blocks WHERE blocker_id = $1 OR blocked_id = $1', [
+        userId,
+      ]);
       // Phase 1D personal data: saved messages, planner items, Plus entitlement and referral links.
       await client.query('DELETE FROM saved_items WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM planner_items WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM entitlements WHERE user_id = $1', [userId]);
-      await client.query('DELETE FROM referrals WHERE inviter_id = $1 OR invitee_id = $1', [userId]);
+      await client.query('DELETE FROM referrals WHERE inviter_id = $1 OR invitee_id = $1', [
+        userId,
+      ]);
       await client.query('DELETE FROM conversation_members WHERE user_id = $1', [userId]);
       await client.query(
         `UPDATE users SET phone_e164 = 'deleted:' || id::text, display_name = NULL, username = NULL,
@@ -166,7 +188,14 @@ export class AccountRepository {
   }
 
   // ---- feedback / config / analytics ----
-  async addFeedback(f: { userId: string | null; category: string; message: string; appVersion?: string; deviceInfo?: string; logs?: string }): Promise<void> {
+  async addFeedback(f: {
+    userId: string | null;
+    category: string;
+    message: string;
+    appVersion?: string;
+    deviceInfo?: string;
+    logs?: string;
+  }): Promise<void> {
     await this.pool.query(
       'INSERT INTO feedback (user_id, category, message, app_version, device_info, logs) VALUES ($1,$2,$3,$4,$5,$6)',
       [f.userId, f.category, f.message, f.appVersion ?? null, f.deviceInfo ?? null, f.logs ?? null],
@@ -183,8 +212,15 @@ export class AccountRepository {
   }
 
   async allFlags() {
-    const { rows } = await this.pool.query('SELECT key, enabled, rollout_pct, description FROM feature_flags ORDER BY key');
-    return rows as Array<{ key: string; enabled: boolean; rollout_pct: number; description: string | null }>;
+    const { rows } = await this.pool.query(
+      'SELECT key, enabled, rollout_pct, description FROM feature_flags ORDER BY key',
+    );
+    return rows as Array<{
+      key: string;
+      enabled: boolean;
+      rollout_pct: number;
+      description: string | null;
+    }>;
   }
 
   async countEvent(name: string): Promise<void> {
@@ -197,13 +233,18 @@ export class AccountRepository {
 
   // ---- admin ----
   async adminStats() {
-    const q = async (sql: string) => Number((await this.pool.query<{ n: string }>(sql)).rows[0]?.n ?? 0);
+    const q = async (sql: string) =>
+      Number((await this.pool.query<{ n: string }>(sql)).rows[0]?.n ?? 0);
     return {
       users: await q('SELECT count(*) AS n FROM users WHERE deleted_at IS NULL'),
-      usersLast7d: await q("SELECT count(*) AS n FROM users WHERE created_at > now() - interval '7 days' AND deleted_at IS NULL"),
+      usersLast7d: await q(
+        "SELECT count(*) AS n FROM users WHERE created_at > now() - interval '7 days' AND deleted_at IS NULL",
+      ),
       conversations: await q('SELECT count(*) AS n FROM conversations'),
       messages: await q('SELECT count(*) AS n FROM messages'),
-      messagesLast24h: await q("SELECT count(*) AS n FROM messages WHERE created_at > now() - interval '24 hours'"),
+      messagesLast24h: await q(
+        "SELECT count(*) AS n FROM messages WHERE created_at > now() - interval '24 hours'",
+      ),
       blocks: await q('SELECT count(*) AS n FROM user_blocks'),
       feedback: await q('SELECT count(*) AS n FROM feedback'),
     };
@@ -228,11 +269,18 @@ export class AccountRepository {
   }
 
   async adminListAnnouncements() {
-    const { rows } = await this.pool.query('SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50');
+    const { rows } = await this.pool.query(
+      'SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50',
+    );
     return rows;
   }
 
-  async adminSaveAnnouncement(a: { title: string; body: string; level: string; endsAt?: string | null }) {
+  async adminSaveAnnouncement(a: {
+    title: string;
+    body: string;
+    level: string;
+    endsAt?: string | null;
+  }) {
     const { rows } = await this.pool.query(
       'INSERT INTO announcements (title, body, level, ends_at) VALUES ($1,$2,$3,$4) RETURNING *',
       [a.title, a.body, a.level, a.endsAt ?? null],
@@ -244,7 +292,12 @@ export class AccountRepository {
     await this.pool.query('UPDATE announcements SET active = $2 WHERE id = $1', [id, active]);
   }
 
-  async adminUpsertFlag(f: { key: string; enabled: boolean; rolloutPct: number; description?: string }) {
+  async adminUpsertFlag(f: {
+    key: string;
+    enabled: boolean;
+    rolloutPct: number;
+    description?: string;
+  }) {
     await this.pool.query(
       `INSERT INTO feature_flags (key, enabled, rollout_pct, description) VALUES ($1,$2,$3,$4)
        ON CONFLICT (key) DO UPDATE SET enabled = $2, rollout_pct = $3, description = COALESCE($4, feature_flags.description), updated_at = now()`,

@@ -11,13 +11,18 @@ describe('checkReadiness', () => {
   });
 
   it('is not ok when the database fails', async () => {
-    const r = await checkReadiness({ query: jest.fn().mockRejectedValue(new Error('down')) }, okRedis);
+    const r = await checkReadiness(
+      { query: jest.fn().mockRejectedValue(new Error('down')) },
+      okRedis,
+    );
     expect(r.ok).toBe(false);
     expect(r.checks).toEqual({ database: 'down', redis: 'up' });
   });
 
   it('is not ok when redis fails', async () => {
-    const r = await checkReadiness(okPool, { ping: jest.fn().mockRejectedValue(new Error('down')) });
+    const r = await checkReadiness(okPool, {
+      ping: jest.fn().mockRejectedValue(new Error('down')),
+    });
     expect(r.ok).toBe(false);
     expect(r.checks).toEqual({ database: 'up', redis: 'down' });
   });

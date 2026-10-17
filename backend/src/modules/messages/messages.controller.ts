@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
@@ -135,6 +147,11 @@ export class MessagesController {
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Body() dto: ForwardMessageDto,
   ) {
-    return this.messagesService.forward(conversationId, dto.sourceMessageId, req.user.sub, dto.clientMsgId);
+    return this.messagesService.forward(
+      conversationId,
+      dto.sourceMessageId,
+      req.user.sub,
+      dto.clientMsgId,
+    );
   }
 }

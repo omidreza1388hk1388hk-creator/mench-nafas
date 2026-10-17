@@ -4,7 +4,9 @@ const ok = { color: '#FF8800', width: 6, points: [0.1, 0.2, 0.3, 0.4] };
 
 describe('sanitizeStrokes', () => {
   it('accepts a valid stroke, lower-cases the color and drops unknown fields', () => {
-    expect(sanitizeStrokes([{ ...ok, evil: 'x' }])).toEqual([{ color: '#ff8800', width: 6, points: [0.1, 0.2, 0.3, 0.4] }]);
+    expect(sanitizeStrokes([{ ...ok, evil: 'x' }])).toEqual([
+      { color: '#ff8800', width: 6, points: [0.1, 0.2, 0.3, 0.4] },
+    ]);
   });
 
   it('rejects non-arrays, empty arrays and oversized requests', () => {

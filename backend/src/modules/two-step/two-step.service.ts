@@ -1,4 +1,10 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { TwoStepRepository } from './two-step.repository';
 import {
@@ -29,7 +35,12 @@ export class TwoStepService {
   }
 
   /** Turning it on, or changing the password. Changing requires the current password. */
-  async set(userId: string, password: string, hint: string | undefined, currentPassword: string | undefined): Promise<void> {
+  async set(
+    userId: string,
+    password: string,
+    hint: string | undefined,
+    currentPassword: string | undefined,
+  ): Promise<void> {
     const problem = passwordProblem(password);
     if (problem) throw new BadRequestException(problem);
     if (hint && hint.toLowerCase().includes(password.toLowerCase())) {
@@ -56,9 +67,16 @@ export class TwoStepService {
   }
 
   /** Validates ticket + password. Returns who is logging in; the caller then issues the session. */
-  async verifyTicket(ticketId: string, password: string): Promise<{ userId: string; deviceName: string }> {
+  async verifyTicket(
+    ticketId: string,
+    password: string,
+  ): Promise<{ userId: string; deviceName: string }> {
     const ticket = await this.repository.getTicket(ticketId);
-    if (!ticket || ticket.expires_at.getTime() < Date.now() || ticket.attempts >= MAX_TICKET_ATTEMPTS) {
+    if (
+      !ticket ||
+      ticket.expires_at.getTime() < Date.now() ||
+      ticket.attempts >= MAX_TICKET_ATTEMPTS
+    ) {
       throw new UnauthorizedException('Verification expired — request a new code');
     }
     try {
@@ -76,11 +94,16 @@ export class TwoStepService {
     if (!row) throw new UnauthorizedException('Wrong password');
     const now = new Date();
     if (isLocked(row.locked_until, now)) {
-      throw new HttpException('Too many wrong passwords. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many wrong passwords. Try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
     const ok = password.length > 0 && (await argon2.verify(row.password_hash, password));
     if (!ok) {
-      await this.repository.recordFailure(userId, (attempts) => lockUntilAfterFailure(attempts, new Date()));
+      await this.repository.recordFailure(userId, (attempts) =>
+        lockUntilAfterFailure(attempts, new Date()),
+      );
       throw new UnauthorizedException('Wrong password');
     }
     await this.repository.recordSuccess(userId);

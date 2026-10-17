@@ -48,8 +48,17 @@ export function canRemoveMember(actor: GroupRole | null, target: GroupRole | nul
 }
 
 /** Only the owner changes roles; the owner's own role is fixed; the new role must be admin or member. */
-export function canChangeRole(actor: GroupRole | null, target: GroupRole | null, next: string): next is 'admin' | 'member' {
-  return actor === 'owner' && target !== null && target !== 'owner' && (next === 'admin' || next === 'member');
+export function canChangeRole(
+  actor: GroupRole | null,
+  target: GroupRole | null,
+  next: string,
+): next is 'admin' | 'member' {
+  return (
+    actor === 'owner' &&
+    target !== null &&
+    target !== 'owner' &&
+    (next === 'admin' || next === 'member')
+  );
 }
 
 export type SendDecision =
@@ -58,11 +67,17 @@ export type SendDecision =
   | { ok: false; reason: 'slow_mode'; retryAfterSeconds: number };
 
 /** Can [role] send now? Admins/owner are exempt from slow mode. [lastSentAtMs] is this member's previous message time. */
-export function decideSend(settings: Pick<GroupSettings, 'sendMessages' | 'slowModeSeconds'>, role: GroupRole | null, lastSentAtMs: number | null, nowMs: number): SendDecision {
+export function decideSend(
+  settings: Pick<GroupSettings, 'sendMessages' | 'slowModeSeconds'>,
+  role: GroupRole | null,
+  lastSentAtMs: number | null,
+  nowMs: number,
+): SendDecision {
   if (!allowed(settings.sendMessages, role)) return { ok: false, reason: 'admins_only' };
   if (settings.slowModeSeconds > 0 && !isAdmin(role) && lastSentAtMs !== null) {
     const waitMs = lastSentAtMs + settings.slowModeSeconds * 1000 - nowMs;
-    if (waitMs > 0) return { ok: false, reason: 'slow_mode', retryAfterSeconds: Math.ceil(waitMs / 1000) };
+    if (waitMs > 0)
+      return { ok: false, reason: 'slow_mode', retryAfterSeconds: Math.ceil(waitMs / 1000) };
   }
   return { ok: true };
 }
@@ -77,7 +92,8 @@ export function parseSettingsPatch(input: Record<string, unknown>): Partial<Grou
   }
   if (input.slowModeSeconds !== undefined) {
     const seconds = input.slowModeSeconds;
-    if (typeof seconds !== 'number' || !(SLOW_MODE_OPTIONS as readonly number[]).includes(seconds)) return null;
+    if (typeof seconds !== 'number' || !(SLOW_MODE_OPTIONS as readonly number[]).includes(seconds))
+      return null;
     patch.slowModeSeconds = seconds;
   }
   return Object.keys(patch).length > 0 ? patch : null;

@@ -10,6 +10,8 @@ export const CALL_REACTIONS = ['❤️', '😂', '😮', '👍', '🔥', '😘',
 
 export function sanitizeCallChatText(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
+  // Intentionally strips control characters from user-supplied text.
+  // eslint-disable-next-line no-control-regex
   const text = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
   if (text.length === 0) return null;
   return text.slice(0, MAX_CALL_CHAT_LENGTH);

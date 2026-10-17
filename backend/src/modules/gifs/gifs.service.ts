@@ -1,4 +1,11 @@
-import { BadGatewayException, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface GifItem {
@@ -25,7 +32,13 @@ export interface GifMedia {
 export type FetchLike = (
   url: string,
   init?: { signal?: AbortSignal; redirect?: 'error' | 'follow' | 'manual' },
-) => Promise<{ ok: boolean; status: number; headers: { get(name: string): string | null }; json(): Promise<unknown>; arrayBuffer(): Promise<ArrayBuffer> }>;
+) => Promise<{
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  json(): Promise<unknown>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}>;
 
 export const GIF_FETCH = 'GIF_FETCH';
 
@@ -107,8 +120,15 @@ export class GifsService {
     return this.list('trending', new URLSearchParams(), offset);
   }
 
-  private async list(path: 'search' | 'trending', params: URLSearchParams, rawOffset: number): Promise<GifPage> {
-    const offset = Math.min(Math.max(Number.isFinite(rawOffset) ? Math.floor(rawOffset) : 0, 0), MAX_OFFSET);
+  private async list(
+    path: 'search' | 'trending',
+    params: URLSearchParams,
+    rawOffset: number,
+  ): Promise<GifPage> {
+    const offset = Math.min(
+      Math.max(Number.isFinite(rawOffset) ? Math.floor(rawOffset) : 0, 0),
+      MAX_OFFSET,
+    );
     params.set('api_key', this.apiKey());
     params.set('limit', String(PAGE_SIZE));
     params.set('offset', String(offset));
@@ -136,7 +156,8 @@ export class GifsService {
     if (!preview || !full) return null;
     if (this.urls.size >= URL_CACHE_MAX) this.urls.delete(this.urls.keys().next().value as string);
     this.urls.set(gif.id, { at: Date.now(), preview, full });
-    const dims = gif.images?.['fixed_width'] ?? gif.images?.['downsized'] ?? gif.images?.['original'];
+    const dims =
+      gif.images?.['fixed_width'] ?? gif.images?.['downsized'] ?? gif.images?.['original'];
     const width = toDimension(dims?.width);
     const height = toDimension(dims?.height);
     return { id: gif.id, title: (gif.title ?? '').slice(0, 120), width, height };
@@ -165,8 +186,11 @@ export class GifsService {
     }
     // Not seen by this process (restart, other instance, old message): ask Giphy for the single GIF.
     const params = new URLSearchParams({ api_key: this.apiKey() });
-    const body = (await this.getJson(`${GIPHY_API}/${id}?${params.toString()}`, true)) as { data?: GiphyGif };
-    if (!body.data || !this.remember({ ...body.data, id })) throw new NotFoundException('GIF not found');
+    const body = (await this.getJson(`${GIPHY_API}/${id}?${params.toString()}`, true)) as {
+      data?: GiphyGif;
+    };
+    if (!body.data || !this.remember({ ...body.data, id }))
+      throw new NotFoundException('GIF not found');
     const entry = this.urls.get(id);
     const url = size === 'preview' ? entry?.preview : entry?.full;
     if (!url) throw new NotFoundException('GIF not found');
@@ -181,11 +205,13 @@ export class GifsService {
     }
     const response = await this.request(url.toString());
     const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.startsWith('image/')) throw new BadGatewayException('GIF provider returned a non-image');
+    if (!contentType.startsWith('image/'))
+      throw new BadGatewayException('GIF provider returned a non-image');
     const declared = Number(response.headers.get('content-length') ?? '0');
     if (declared > MAX_MEDIA_BYTES) throw new BadGatewayException('GIF is too large');
     const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length === 0 || buffer.length > MAX_MEDIA_BYTES) throw new BadGatewayException('GIF is too large');
+    if (buffer.length === 0 || buffer.length > MAX_MEDIA_BYTES)
+      throw new BadGatewayException('GIF is too large');
     return { buffer, contentType: contentType.split(';')[0].trim() };
   }
 
@@ -214,12 +240,19 @@ export class GifsService {
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await this.fetcher(url, { signal: controller.signal, redirect: 'error' });
-      if (response.status === 404 && notFoundIsMissing) throw new NotFoundException('GIF not found');
-      if (response.status === 429) throw new ServiceUnavailableException('GIF provider rate limit reached, try again shortly');
+      if (response.status === 404 && notFoundIsMissing)
+        throw new NotFoundException('GIF not found');
+      if (response.status === 429)
+        throw new ServiceUnavailableException('GIF provider rate limit reached, try again shortly');
       if (!response.ok) throw new BadGatewayException(`GIF provider error (${response.status})`);
       return response;
     } catch (err) {
-      if (err instanceof NotFoundException || err instanceof BadGatewayException || err instanceof ServiceUnavailableException) throw err;
+      if (
+        err instanceof NotFoundException ||
+        err instanceof BadGatewayException ||
+        err instanceof ServiceUnavailableException
+      )
+        throw err;
       // Never log the URL: it contains the API key.
       this.logger.warn(`GIF provider request failed: ${(err as Error).name}`);
       throw new BadGatewayException('GIF provider is unreachable');

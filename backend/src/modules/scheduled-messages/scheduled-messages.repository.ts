@@ -40,13 +40,27 @@ export class ScheduledMessagesRepository {
   }
 
   /** Idempotent on (conversation, sender, client_msg_id): a retried request returns the row that already exists. */
-  async create(input: { conversationId: string; senderId: string; clientMsgId: string; body: string; silent: boolean; sendAt: Date }): Promise<ScheduledRow> {
+  async create(input: {
+    conversationId: string;
+    senderId: string;
+    clientMsgId: string;
+    body: string;
+    silent: boolean;
+    sendAt: Date;
+  }): Promise<ScheduledRow> {
     const { rows } = await this.pool.query<ScheduledRow>(
       `INSERT INTO scheduled_messages (conversation_id, sender_id, client_msg_id, body, silent, send_at)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (conversation_id, sender_id, client_msg_id) DO UPDATE SET client_msg_id = EXCLUDED.client_msg_id
        RETURNING *`,
-      [input.conversationId, input.senderId, input.clientMsgId, input.body, input.silent, input.sendAt],
+      [
+        input.conversationId,
+        input.senderId,
+        input.clientMsgId,
+        input.body,
+        input.silent,
+        input.sendAt,
+      ],
     );
     return rows[0];
   }
@@ -61,7 +75,10 @@ export class ScheduledMessagesRepository {
 
   /** Deletes a pending message of this sender; false if it does not exist, is not theirs or already went out. */
   async deletePending(id: string, senderId: string): Promise<boolean> {
-    const result = await this.pool.query(`DELETE FROM scheduled_messages WHERE id = $1 AND sender_id = $2 AND status = 'pending'`, [id, senderId]);
+    const result = await this.pool.query(
+      `DELETE FROM scheduled_messages WHERE id = $1 AND sender_id = $2 AND status = 'pending'`,
+      [id, senderId],
+    );
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -79,11 +96,17 @@ export class ScheduledMessagesRepository {
   }
 
   async markSent(id: string): Promise<void> {
-    await this.pool.query(`UPDATE scheduled_messages SET status = 'sent', sent_at = now(), error = NULL WHERE id = $1`, [id]);
+    await this.pool.query(
+      `UPDATE scheduled_messages SET status = 'sent', sent_at = now(), error = NULL WHERE id = $1`,
+      [id],
+    );
   }
 
   async markFailed(id: string, error: string): Promise<void> {
-    await this.pool.query(`UPDATE scheduled_messages SET status = 'failed', error = $2 WHERE id = $1`, [id, error.slice(0, 300)]);
+    await this.pool.query(
+      `UPDATE scheduled_messages SET status = 'failed', error = $2 WHERE id = $1`,
+      [id, error.slice(0, 300)],
+    );
   }
 
   /** A crash between claim and send leaves rows in 'sending'; hand them back so the next tick retries (send is idempotent). */

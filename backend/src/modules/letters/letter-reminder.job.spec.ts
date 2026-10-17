@@ -12,14 +12,25 @@ describe('LetterReminderJob', () => {
     conversations = { listOtherMemberIds: jest.fn().mockResolvedValue(['user-b']) };
     users = { findById: jest.fn().mockResolvedValue({ display_name: 'Ali', phone_e164: '+98' }) };
     notifications = { notifyLetterUnlocked: jest.fn().mockResolvedValue(undefined) };
-    job = new LetterReminderJob(letters as any, conversations as any, users as any, notifications as any);
+    job = new LetterReminderJob(
+      letters as any,
+      conversations as any,
+      users as any,
+      notifications as any,
+    );
   });
 
   it('pushes one reminder to the recipient of each claimed letter', async () => {
-    letters.claimDueReminders.mockResolvedValue([{ id: 'l-1', conversation_id: 'c-1', author_id: 'user-a' }]);
+    letters.claimDueReminders.mockResolvedValue([
+      { id: 'l-1', conversation_id: 'c-1', author_id: 'user-a' },
+    ]);
     await expect(job.tick()).resolves.toBe(1);
     expect(conversations.listOtherMemberIds).toHaveBeenCalledWith('c-1', 'user-a');
-    expect(notifications.notifyLetterUnlocked).toHaveBeenCalledWith({ recipientUserIds: ['user-b'], conversationId: 'c-1', senderDisplayName: 'Ali' });
+    expect(notifications.notifyLetterUnlocked).toHaveBeenCalledWith({
+      recipientUserIds: ['user-b'],
+      conversationId: 'c-1',
+      senderDisplayName: 'Ali',
+    });
   });
 
   it('does nothing when no letter is due', async () => {

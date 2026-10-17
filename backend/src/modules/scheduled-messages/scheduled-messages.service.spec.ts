@@ -1,16 +1,30 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { MAX_PENDING_PER_CONVERSATION, parseSendAt, ScheduledMessagesService } from './scheduled-messages.service';
+import {
+  MAX_PENDING_PER_CONVERSATION,
+  parseSendAt,
+  ScheduledMessagesService,
+} from './scheduled-messages.service';
 
 const NOW = Date.parse('2026-10-05T12:00:00.000Z');
 const row = (over: Record<string, unknown> = {}) => ({
-  id: 'sm-1', conversation_id: 'conv-1', sender_id: 'me', client_msg_id: 'cm-1', body: 'happy anniversary', silent: false,
-  send_at: new Date(NOW + 60_000), status: 'pending', created_at: new Date(NOW), ...over,
+  id: 'sm-1',
+  conversation_id: 'conv-1',
+  sender_id: 'me',
+  client_msg_id: 'cm-1',
+  body: 'happy anniversary',
+  silent: false,
+  send_at: new Date(NOW + 60_000),
+  status: 'pending',
+  created_at: new Date(NOW),
+  ...over,
 });
 
 function build() {
   const repo = {
     countPending: jest.fn().mockResolvedValue(0),
-    create: jest.fn().mockImplementation(async (i) => row({ body: i.body, silent: i.silent, send_at: i.sendAt })),
+    create: jest
+      .fn()
+      .mockImplementation(async (i) => row({ body: i.body, silent: i.silent, send_at: i.sendAt })),
     listPending: jest.fn().mockResolvedValue([row()]),
     deletePending: jest.fn().mockResolvedValue(true),
     claimDue: jest.fn().mockResolvedValue([]),
@@ -20,7 +34,12 @@ function build() {
   };
   const conversations = { assertMember: jest.fn().mockResolvedValue(undefined) };
   const messages = { send: jest.fn().mockResolvedValue({}) };
-  const service = new ScheduledMessagesService(repo as any, conversations as any, messages as any, () => NOW);
+  const service = new ScheduledMessagesService(
+    repo as any,
+    conversations as any,
+    messages as any,
+    () => NOW,
+  );
   return { service, repo, conversations, messages };
 }
 
@@ -29,7 +48,9 @@ describe('parseSendAt', () => {
     expect(parseSendAt(new Date(NOW + 60_000).toISOString(), NOW).getTime()).toBe(NOW + 60_000);
     expect(() => parseSendAt(new Date(NOW - 1000).toISOString(), NOW)).toThrow(BadRequestException);
     expect(() => parseSendAt(new Date(NOW + 2000).toISOString(), NOW)).toThrow(BadRequestException);
-    expect(() => parseSendAt(new Date(NOW + 400 * 24 * 3600 * 1000).toISOString(), NOW)).toThrow(BadRequestException);
+    expect(() => parseSendAt(new Date(NOW + 400 * 24 * 3600 * 1000).toISOString(), NOW)).toThrow(
+      BadRequestException,
+    );
     expect(() => parseSendAt('not a date', NOW)).toThrow(BadRequestException);
   });
 });
@@ -37,7 +58,14 @@ describe('parseSendAt', () => {
 describe('ScheduledMessagesService', () => {
   it('schedules a trimmed message for a member', async () => {
     const { service, repo, conversations } = build();
-    const dto = await service.schedule({ conversationId: 'conv-1', senderId: 'me', clientMsgId: 'cm-1', body: '  hi  ', sendAt: new Date(NOW + 60_000).toISOString(), silent: true });
+    const dto = await service.schedule({
+      conversationId: 'conv-1',
+      senderId: 'me',
+      clientMsgId: 'cm-1',
+      body: '  hi  ',
+      sendAt: new Date(NOW + 60_000).toISOString(),
+      silent: true,
+    });
     expect(conversations.assertMember).toHaveBeenCalledWith('conv-1', 'me');
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ body: 'hi', silent: true }));
     expect(dto.status).toBe('pending');
@@ -45,11 +73,22 @@ describe('ScheduledMessagesService', () => {
 
   it('rejects empty text, a bad time and too many pending messages', async () => {
     const { service, repo } = build();
-    const base = { conversationId: 'conv-1', senderId: 'me', clientMsgId: 'cm', sendAt: new Date(NOW + 60_000).toISOString() };
-    await expect(service.schedule({ ...base, body: '   ' })).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.schedule({ ...base, body: 'x', sendAt: new Date(NOW).toISOString() })).rejects.toBeInstanceOf(BadRequestException);
+    const base = {
+      conversationId: 'conv-1',
+      senderId: 'me',
+      clientMsgId: 'cm',
+      sendAt: new Date(NOW + 60_000).toISOString(),
+    };
+    await expect(service.schedule({ ...base, body: '   ' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      service.schedule({ ...base, body: 'x', sendAt: new Date(NOW).toISOString() }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     repo.countPending.mockResolvedValue(MAX_PENDING_PER_CONVERSATION);
-    await expect(service.schedule({ ...base, body: 'x' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.schedule({ ...base, body: 'x' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('cancel removes only a pending message of the caller', async () => {
@@ -64,7 +103,13 @@ describe('ScheduledMessagesService', () => {
     const { service, repo, messages } = build();
     repo.claimDue.mockResolvedValue([row({ silent: true })]);
     expect(await service.tick()).toBe(1);
-    expect(messages.send).toHaveBeenCalledWith({ conversationId: 'conv-1', senderId: 'me', clientMsgId: 'cm-1', body: 'happy anniversary', silent: true });
+    expect(messages.send).toHaveBeenCalledWith({
+      conversationId: 'conv-1',
+      senderId: 'me',
+      clientMsgId: 'cm-1',
+      body: 'happy anniversary',
+      silent: true,
+    });
     expect(repo.markSent).toHaveBeenCalledWith('sm-1');
     expect(repo.releaseStuck).toHaveBeenCalled();
   });
@@ -83,7 +128,12 @@ describe('ScheduledMessagesService', () => {
     repo.claimDue.mockRejectedValueOnce(new Error('db down'));
     await expect(service.tick()).resolves.toBe(0);
     let release!: () => void;
-    repo.claimDue.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve([]); }));
+    repo.claimDue.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve([]);
+        }),
+    );
     const first = service.tick();
     await expect(service.tick()).resolves.toBe(0); // overlapped tick is a no-op
     await Promise.resolve();

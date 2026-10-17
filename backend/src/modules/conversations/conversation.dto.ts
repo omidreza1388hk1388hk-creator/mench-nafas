@@ -31,7 +31,10 @@ export interface ConversationDto {
   nextMeetDate: string | null;
 }
 
-export function toConversationDto(row: ConversationRow, otherMember: OtherMemberRow | null): ConversationDto {
+export function toConversationDto(
+  row: ConversationRow,
+  otherMember: OtherMemberRow | null,
+): ConversationDto {
   return {
     id: row.id,
     kind: row.kind,

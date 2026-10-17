@@ -1,7 +1,17 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { ConversationsService } from '../conversations/conversations.service';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { PollDto } from './poll.dto';
 import { PollsRepository } from './polls.repository';
 
@@ -43,7 +53,8 @@ export class PollsService {
     const question = input.question.replace(/\s+/g, ' ').trim();
     if (!question) throw new BadRequestException('Question is required');
     const options = cleanOptions(input.options);
-    if (options.length < 2) throw new BadRequestException('A poll needs at least two different options');
+    if (options.length < 2)
+      throw new BadRequestException('A poll needs at least two different options');
     const id = await this.pollsRepository.create({
       conversationId: input.conversationId,
       creatorId: input.creatorId,
@@ -64,7 +75,8 @@ export class PollsService {
     const poll = await this.get(pollId, userId);
     if (poll.closed) throw new ConflictException('This poll is closed');
     const unique = Array.from(new Set(optionIds));
-    if (!poll.multiple && unique.length > 1) throw new BadRequestException('This poll allows one answer');
+    if (!poll.multiple && unique.length > 1)
+      throw new BadRequestException('This poll allows one answer');
     const valid = new Set(await this.pollsRepository.listOptionIds(pollId));
     if (unique.some((id) => !valid.has(id))) throw new BadRequestException('Unknown option');
     await this.pollsRepository.replaceVotes(pollId, userId, unique);
@@ -73,15 +85,23 @@ export class PollsService {
 
   async close(pollId: string, userId: string): Promise<PollDto> {
     const poll = await this.get(pollId, userId);
-    if (poll.creatorId !== userId) throw new ForbiddenException('Only the poll creator can close it');
+    if (poll.creatorId !== userId)
+      throw new ForbiddenException('Only the poll creator can close it');
     await this.pollsRepository.close(pollId);
     return this.publish(pollId, userId);
   }
 
   private async publish(pollId: string, actingUserId: string): Promise<PollDto> {
     const poll = await this.require(pollId);
-    const others = await this.conversationsRepository.listOtherMemberIds(poll.conversationId, actingUserId);
-    this.broadcaster.broadcastToUsers(others, { type: 'poll.updated', conversationId: poll.conversationId, poll });
+    const others = await this.conversationsRepository.listOtherMemberIds(
+      poll.conversationId,
+      actingUserId,
+    );
+    this.broadcaster.broadcastToUsers(others, {
+      type: 'poll.updated',
+      conversationId: poll.conversationId,
+      poll,
+    });
     return poll;
   }
 

@@ -50,7 +50,12 @@ export class QuizzesRepository {
     return Number(rows[0].n);
   }
 
-  async create(conversationId: string, authorId: string, title: string, questions: QuizQuestion[]): Promise<QuizRow> {
+  async create(
+    conversationId: string,
+    authorId: string,
+    title: string,
+    questions: QuizQuestion[],
+  ): Promise<QuizRow> {
     const { rows } = await this.pool.query<QuizRow>(
       'INSERT INTO couple_quizzes (conversation_id, author_id, title, questions) VALUES ($1, $2, $3, $4::jsonb) RETURNING *',
       [conversationId, authorId, title, JSON.stringify(questions)],
@@ -59,7 +64,9 @@ export class QuizzesRepository {
   }
 
   async findById(quizId: string): Promise<QuizRow | null> {
-    const { rows } = await this.pool.query<QuizRow>('SELECT * FROM couple_quizzes WHERE id = $1', [quizId]);
+    const { rows } = await this.pool.query<QuizRow>('SELECT * FROM couple_quizzes WHERE id = $1', [
+      quizId,
+    ]);
     return rows[0] ?? null;
   }
 
@@ -72,7 +79,13 @@ export class QuizzesRepository {
   }
 
   /** Returns false if this person already answered (the primary key makes the insert a no-op). */
-  async saveResult(quizId: string, userId: string, answers: number[], score: number, total: number): Promise<boolean> {
+  async saveResult(
+    quizId: string,
+    userId: string,
+    answers: number[],
+    score: number,
+    total: number,
+  ): Promise<boolean> {
     const { rowCount } = await this.pool.query(
       `INSERT INTO couple_quiz_results (quiz_id, user_id, answers, score, total) VALUES ($1, $2, $3::jsonb, $4, $5)
        ON CONFLICT DO NOTHING`,

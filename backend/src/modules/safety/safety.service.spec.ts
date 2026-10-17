@@ -14,7 +14,13 @@ function makePool(handlers: Array<[RegExp, (params?: unknown[]) => any[]]>) {
 }
 
 const FLOOD = { key: 'flood', enabled: true, threshold: 3, window_seconds: 60, action_hours: 1 };
-const REPEAT = { key: 'repeat_message', enabled: true, threshold: 3, window_seconds: 300, action_hours: 2 };
+const REPEAT = {
+  key: 'repeat_message',
+  enabled: true,
+  threshold: 3,
+  window_seconds: 300,
+  action_hours: 2,
+};
 
 describe('SafetyService', () => {
   it('lets a normal sender through', async () => {
@@ -24,7 +30,9 @@ describe('SafetyService', () => {
   });
 
   it('blocks a user with an active restriction', async () => {
-    const { pool } = makePool([[/FROM user_restrictions/, () => [{ kind: 'mute', expires_at: null }]]]);
+    const { pool } = makePool([
+      [/FROM user_restrictions/, () => [{ kind: 'mute', expires_at: null }]],
+    ]);
     const svc = new SafetyService(pool);
     await expect(svc.assertCanSend('u1', 'hi')).rejects.toThrow(ForbiddenException);
   });
@@ -57,6 +65,8 @@ describe('SafetyService', () => {
   it('rejects an unknown report category', async () => {
     const { pool } = makePool([]);
     const svc = new SafetyService(pool);
-    await expect(svc.createReport('u1', { targetUserId: 'u2', category: 'nonsense' })).rejects.toThrow();
+    await expect(
+      svc.createReport('u1', { targetUserId: 'u2', category: 'nonsense' }),
+    ).rejects.toThrow();
   });
 });

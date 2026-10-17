@@ -1,5 +1,7 @@
 package com.omidgame.mench.feature.chat.presentation
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.VolumeOff
@@ -49,6 +52,8 @@ fun SendOptionsSheet(
     onSilent: () -> Unit,
     onScheduleAt: (epochMillis: Long, surprise: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** Opens the full-screen message-effect picker; null hides the row (e.g. while editing). */
+    onEffect: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
@@ -79,6 +84,12 @@ fun SendOptionsSheet(
             SheetRow(Icons.Filled.VolumeOff, stringResource(R.string.send_silently), null) {
                 onSilent()
                 onDismiss()
+            }
+            if (onEffect != null) {
+                SheetRow(Icons.Filled.AutoAwesome, stringResource(R.string.effect_picker_title), null) {
+                    onDismiss()
+                    onEffect()
+                }
             }
             Text(
                 stringResource(R.string.schedule_title),

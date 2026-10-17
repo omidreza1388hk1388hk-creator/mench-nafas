@@ -24,15 +24,19 @@ describe('UsersService.updateProfile', () => {
       findById: jest.fn(),
       updateProfile: jest.fn(),
     } as unknown as jest.Mocked<UsersRepository>;
-    service = new UsersService(repository, { put: jest.fn(), get: jest.fn(), delete: jest.fn() } as never);
+    service = new UsersService(repository, {
+      put: jest.fn(),
+      get: jest.fn(),
+      delete: jest.fn(),
+    } as never);
   });
 
   it('throws NotFoundException when the user does not exist', async () => {
     repository.findById.mockResolvedValue(null);
 
-    await expect(service.updateProfile('missing-user', { displayName: 'New' })).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.updateProfile('missing-user', { displayName: 'New' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.updateProfile).not.toHaveBeenCalled();
   });
 
@@ -54,9 +58,13 @@ describe('UsersService.updateProfile', () => {
    */
   it('translates a unique-constraint violation on username into ConflictException', async () => {
     repository.findById.mockResolvedValue(existingUser);
-    repository.updateProfile.mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }));
+    repository.updateProfile.mockRejectedValue(
+      Object.assign(new Error('duplicate key'), { code: '23505' }),
+    );
 
-    await expect(service.updateProfile('user-1', { username: 'taken' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.updateProfile('user-1', { username: 'taken' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('rethrows unrelated database errors as-is', async () => {
@@ -74,7 +82,11 @@ describe('UsersService contact privacy', () => {
       getContactPrivacy: jest.fn().mockResolvedValue(true),
       setContactPrivacy: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<UsersRepository>;
-    const service = new UsersService(repository, { put: jest.fn(), get: jest.fn(), delete: jest.fn() } as never);
+    const service = new UsersService(repository, {
+      put: jest.fn(),
+      get: jest.fn(),
+      delete: jest.fn(),
+    } as never);
 
     await service.setContactPrivacy('user-1', false);
     expect(repository.setContactPrivacy).toHaveBeenCalledWith('user-1', false);

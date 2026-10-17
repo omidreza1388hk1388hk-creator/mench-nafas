@@ -72,7 +72,10 @@ export class AuthService {
     const hash = this.tokenService.hashRefreshToken(refreshToken);
     const session = await this.sessionsRepository.findActiveByTokenHash(hash);
 
-    if (!session || !this.tokenService.refreshTokenMatchesHash(refreshToken, session.refresh_token_hash)) {
+    if (
+      !session ||
+      !this.tokenService.refreshTokenMatchesHash(refreshToken, session.refresh_token_hash)
+    ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -141,7 +144,12 @@ export class AuthService {
     const refreshTokenHash = this.tokenService.hashRefreshToken(refreshToken);
     const expiresAt = this.tokenService.refreshTokenExpiry();
 
-    const session = await this.sessionsRepository.create(userId, deviceId, refreshTokenHash, expiresAt);
+    const session = await this.sessionsRepository.create(
+      userId,
+      deviceId,
+      refreshTokenHash,
+      expiresAt,
+    );
 
     const accessToken = this.tokenService.signAccessToken({ sub: userId, deviceId });
 

@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
 import { CreateScheduledMessageDto } from './dto/create-scheduled-message.dto';
@@ -11,8 +22,19 @@ export class ScheduledMessagesController {
 
   @Post('conversations/:conversationId/scheduled')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  schedule(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateScheduledMessageDto) {
-    return this.service.schedule({ conversationId, senderId: req.user.sub, clientMsgId: dto.clientMsgId, body: dto.body, sendAt: dto.sendAt, silent: dto.silent });
+  schedule(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: CreateScheduledMessageDto,
+  ) {
+    return this.service.schedule({
+      conversationId,
+      senderId: req.user.sub,
+      clientMsgId: dto.clientMsgId,
+      body: dto.body,
+      sendAt: dto.sendAt,
+      silent: dto.silent,
+    });
   }
 
   @Get('conversations/:conversationId/scheduled')

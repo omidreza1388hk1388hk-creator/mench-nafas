@@ -160,14 +160,19 @@ class ChatViewModel @Inject constructor(
         chatRepository.observeMessageWindow(conversationId, limit).map { list -> list to (list.size >= limit) }
     }
 
+    // kotlinx.coroutines' typed combine() tops out at five flows; the two member
+    // maps travel together so the main combine stays within that limit.
+    private val memberInfo = combine(_memberNames, _memberAvatars) { names, avatars -> names to avatars }
+
     val uiState: StateFlow<ChatUiState> = combine(
         messageWindow,
         chatRepository.observeTypingConversationIds(),
         _editingMessage,
         chatRepository.observeConversations(),
-        _memberNames,
-        _memberAvatars,
-    ) { windowed, typingIds, editingMessage, conversations, memberNames, memberAvatars ->
+        memberInfo,
+    ) { windowed, typingIds, editingMessage, conversations, members ->
+        val memberNames = members.first
+        val memberAvatars = members.second
         val messages = windowed.first
         val thisConversation = conversations.firstOrNull { it.id == conversationId }
         ChatUiState(

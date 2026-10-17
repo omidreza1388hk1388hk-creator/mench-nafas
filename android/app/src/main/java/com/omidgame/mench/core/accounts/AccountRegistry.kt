@@ -5,7 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
-import android.database.sqlite.DatabaseErrorHandler
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import org.json.JSONArray
 import org.json.JSONObject

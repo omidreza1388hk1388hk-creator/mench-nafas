@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { MemoriesRepository } from '../memories/memories.repository';
 import { StoriesRepository, StoryRow } from './stories.repository';
 
@@ -50,12 +59,17 @@ export class StoriesService {
 
   async list(conversationId: string, userId: string): Promise<StoryDto[]> {
     await this.assertMember(conversationId, userId);
-    return (await this.storiesRepository.listActive(conversationId, userId)).map((r) => toDto(r, userId));
+    return (await this.storiesRepository.listActive(conversationId, userId)).map((r) =>
+      toDto(r, userId),
+    );
   }
 
   /** For the chat list: conversations that have stories you have not seen, with the count. */
   async unseen(userId: string): Promise<{ conversationId: string; count: number }[]> {
-    return (await this.storiesRepository.unseenByConversation(userId)).map((r) => ({ conversationId: r.conversation_id, count: Number(r.n) }));
+    return (await this.storiesRepository.unseenByConversation(userId)).map((r) => ({
+      conversationId: r.conversation_id,
+      count: Number(r.n),
+    }));
   }
 
   async create(
@@ -64,15 +78,31 @@ export class StoriesService {
     dto: { body: string; emoji?: string; palette: number; attachmentId?: string },
   ): Promise<StoryDto> {
     await this.assertMember(conversationId, userId);
-    if (dto.attachmentId && !(await this.memoriesRepository.isImageAttachmentOfConversation(dto.attachmentId, conversationId))) {
+    if (
+      dto.attachmentId &&
+      !(await this.memoriesRepository.isImageAttachmentOfConversation(
+        dto.attachmentId,
+        conversationId,
+      ))
+    ) {
       throw new BadRequestException('attachmentId must be an image uploaded to this conversation');
     }
     const body = dto.body.trim();
     if (!body) throw new BadRequestException('A story needs some text');
-    if ((await this.storiesRepository.countActiveByAuthor(conversationId, userId)) >= MAX_ACTIVE_STORIES_PER_AUTHOR) {
+    if (
+      (await this.storiesRepository.countActiveByAuthor(conversationId, userId)) >=
+      MAX_ACTIVE_STORIES_PER_AUTHOR
+    ) {
       throw new BadRequestException(`At most ${MAX_ACTIVE_STORIES_PER_AUTHOR} active stories`);
     }
-    const row = await this.storiesRepository.create(conversationId, userId, body, dto.emoji?.trim() ?? '', dto.palette, dto.attachmentId ?? null);
+    const row = await this.storiesRepository.create(
+      conversationId,
+      userId,
+      body,
+      dto.emoji?.trim() ?? '',
+      dto.palette,
+      dto.attachmentId ?? null,
+    );
     await this.notifyChanged(conversationId, userId);
     return toDto(row, userId);
   }
@@ -81,17 +111,23 @@ export class StoriesService {
   async markViewed(conversationId: string, storyId: string, userId: string): Promise<void> {
     await this.assertMember(conversationId, userId);
     const story = await this.storiesRepository.findById(storyId);
-    if (!story || story.conversation_id !== conversationId) throw new NotFoundException('Story not found');
+    if (!story || story.conversation_id !== conversationId)
+      throw new NotFoundException('Story not found');
     if (story.author_id === userId || new Date(story.expires_at).getTime() <= Date.now()) return;
     await this.storiesRepository.markViewed(storyId, userId);
-    this.realtimeBroadcaster.broadcastToUsers([story.author_id], { type: 'story.changed', conversationId });
+    this.realtimeBroadcaster.broadcastToUsers([story.author_id], {
+      type: 'story.changed',
+      conversationId,
+    });
   }
 
   async remove(conversationId: string, storyId: string, userId: string): Promise<void> {
     await this.assertMember(conversationId, userId);
     const story = await this.storiesRepository.findById(storyId);
-    if (!story || story.conversation_id !== conversationId) throw new NotFoundException('Story not found');
-    if (story.author_id !== userId) throw new ForbiddenException('Only the author can delete a story');
+    if (!story || story.conversation_id !== conversationId)
+      throw new NotFoundException('Story not found');
+    if (story.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a story');
     await this.storiesRepository.delete(storyId);
     await this.notifyChanged(conversationId, userId);
   }

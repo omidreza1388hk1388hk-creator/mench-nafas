@@ -91,7 +91,11 @@ export class SearchRepository {
    * comment in 007_phase5_group_conversations.sql), so its "chat search"
    * identity is entirely the other person.
    */
-  async searchConversations(userId: string, query: string, limit: number): Promise<ConversationSearchRow[]> {
+  async searchConversations(
+    userId: string,
+    query: string,
+    limit: number,
+  ): Promise<ConversationSearchRow[]> {
     const { rows } = await this.pool.query<ConversationSearchRow>(
       `SELECT DISTINCT ON (c.id)
          c.id, c.kind, c.title, c.last_message_at,

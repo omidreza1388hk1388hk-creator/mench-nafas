@@ -1,6 +1,9 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrivacyRepository } from './privacy.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { DEFAULT_PRIVACY, PrivacySettings, normalizeDisappearSeconds } from './privacy.types';
 import { UpdatePrivacyDto } from './dto/update-privacy.dto';
 
@@ -57,13 +60,20 @@ export class PrivacyService {
 
   // --- disappearing messages -----------------------------------------------
 
-  async getDisappearing(conversationId: string, userId: string): Promise<{ seconds: number | null }> {
+  async getDisappearing(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ seconds: number | null }> {
     await this.requireMember(conversationId, userId);
     return { seconds: await this.repository.getDisappearSeconds(conversationId) };
   }
 
   /** Direct chats: either person may change it. Groups: only the owner. */
-  async setDisappearing(conversationId: string, userId: string, seconds: number | undefined): Promise<{ seconds: number | null }> {
+  async setDisappearing(
+    conversationId: string,
+    userId: string,
+    seconds: number | undefined,
+  ): Promise<{ seconds: number | null }> {
     const membership = await this.requireMember(conversationId, userId);
     if (membership.kind === 'group' && membership.role !== 'owner') {
       throw new ForbiddenException('Only the group owner can change disappearing messages');

@@ -49,10 +49,7 @@ export class OtpRepository {
   }
 
   async consume(id: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE otp_challenges SET consumed_at = now() WHERE id = $1`,
-      [id],
-    );
+    await this.pool.query(`UPDATE otp_challenges SET consumed_at = now() WHERE id = $1`, [id]);
   }
 
   async mostRecentForPhone(phoneE164: string): Promise<OtpChallengeRow | null> {

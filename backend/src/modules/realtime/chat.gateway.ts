@@ -1,11 +1,7 @@
 import { Inject, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_POOL } from '../../database/database.module';
-import {
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  WebSocketGateway,
-} from '@nestjs/websockets';
+import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway } from '@nestjs/websockets';
 import { IncomingMessage } from 'http';
 import { URL } from 'url';
 import WebSocket from 'ws';
@@ -41,7 +37,12 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
  */
 @WebSocketGateway({ path: '/ws' })
 export class ChatGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, RealtimeBroadcaster, OnModuleInit, OnModuleDestroy
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    RealtimeBroadcaster,
+    OnModuleInit,
+    OnModuleDestroy
 {
   private readonly logger = new Logger('ChatGateway');
   private readonly connectionsByUserId = new Map<string, Set<AuthenticatedSocket>>();
@@ -165,7 +166,12 @@ export class ChatGateway
   private async onSocketOpened(userId: string, wasOffline: boolean): Promise<void> {
     const coMembers = await this.listCoMemberIds(userId);
     if (wasOffline && !(await this.presenceHidden(userId))) {
-      this.broadcastToUsers(coMembers, { type: 'presence.changed', userId, online: true, lastSeenAt: null });
+      this.broadcastToUsers(coMembers, {
+        type: 'presence.changed',
+        userId,
+        online: true,
+        lastSeenAt: null,
+      });
     }
     if (coMembers.length === 0) return;
 
@@ -195,7 +201,12 @@ export class ChatGateway
     const lastSeenAt = rows[0]?.last_seen_at?.toISOString() ?? new Date().toISOString();
     if (await this.presenceHidden(userId)) return;
     const coMembers = await this.listCoMemberIds(userId);
-    this.broadcastToUsers(coMembers, { type: 'presence.changed', userId, online: false, lastSeenAt });
+    this.broadcastToUsers(coMembers, {
+      type: 'presence.changed',
+      userId,
+      online: false,
+      lastSeenAt,
+    });
   }
 
   broadcastToUsers(userIds: string[], event: ServerToClientEvent): void {
@@ -220,7 +231,10 @@ export class ChatGateway
     return false;
   }
 
-  private async handleIncomingMessage(client: AuthenticatedSocket, raw: WebSocket.RawData): Promise<void> {
+  private async handleIncomingMessage(
+    client: AuthenticatedSocket,
+    raw: WebSocket.RawData,
+  ): Promise<void> {
     if (!client.userId) return;
 
     let event: ClientToServerEvent;
@@ -234,7 +248,10 @@ export class ChatGateway
       // Authorization on every inbound event, not just REST endpoints:
       // only relay typing state to members of a conversation this user
       // actually belongs to.
-      const isMember = await this.conversationsRepository.isMember(event.conversationId, client.userId);
+      const isMember = await this.conversationsRepository.isMember(
+        event.conversationId,
+        client.userId,
+      );
       if (!isMember) return;
 
       const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
@@ -275,7 +292,15 @@ export class ChatGateway
     fromUserId: string,
     event: Extract<
       ClientToServerEvent,
-      { type: 'call.offer' | 'call.answer' | 'call.ice-candidate' | 'call.hangup' | 'call.chat' | 'call.reaction' }
+      {
+        type:
+          | 'call.offer'
+          | 'call.answer'
+          | 'call.ice-candidate'
+          | 'call.hangup'
+          | 'call.chat'
+          | 'call.reaction';
+      }
     >,
   ): Promise<void> {
     const isParticipant = await this.callsRepository.isParticipant(event.callId, fromUserId);
@@ -308,12 +333,23 @@ export class ChatGateway
       case 'call.chat': {
         const text = sanitizeCallChatText(event.text);
         if (!text) return;
-        outgoing = { type: 'call.chat', callId: event.callId, from: fromUserId, text, sentAt: new Date().toISOString() };
+        outgoing = {
+          type: 'call.chat',
+          callId: event.callId,
+          from: fromUserId,
+          text,
+          sentAt: new Date().toISOString(),
+        };
         break;
       }
       case 'call.reaction':
         if (!isAllowedCallReaction(event.emoji)) return;
-        outgoing = { type: 'call.reaction', callId: event.callId, from: fromUserId, emoji: event.emoji };
+        outgoing = {
+          type: 'call.reaction',
+          callId: event.callId,
+          from: fromUserId,
+          emoji: event.emoji,
+        };
         break;
     }
 

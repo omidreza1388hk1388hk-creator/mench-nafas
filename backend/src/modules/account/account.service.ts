@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { createHash } from 'crypto';
 import { AccountRepository, PublicUserRow } from './account.repository';
 import { SafetyService } from '../safety/safety.service';
@@ -82,9 +87,19 @@ export class AccountService {
     await this.repo.deleteAccount(userId);
   }
 
-  async feedback(userId: string | null, dto: { category?: string; message: string; appVersion?: string; deviceInfo?: string; logs?: string }) {
+  async feedback(
+    userId: string | null,
+    dto: {
+      category?: string;
+      message: string;
+      appVersion?: string;
+      deviceInfo?: string;
+      logs?: string;
+    },
+  ) {
     const message = (dto.message ?? '').trim();
-    if (message.length < 3 || message.length > 4000) throw new BadRequestException('Message must be 3-4000 characters');
+    if (message.length < 3 || message.length > 4000)
+      throw new BadRequestException('Message must be 3-4000 characters');
     await this.repo.addFeedback({
       userId,
       category: (dto.category ?? 'general').slice(0, 32),
@@ -96,7 +111,10 @@ export class AccountService {
   }
 
   async remoteConfig(userId: string) {
-    const [flags, announcements] = await Promise.all([this.repo.allFlags(), this.repo.activeAnnouncements()]);
+    const [flags, announcements] = await Promise.all([
+      this.repo.allFlags(),
+      this.repo.activeAnnouncements(),
+    ]);
     const resolved: Record<string, boolean> = {};
     for (const f of flags) resolved[f.key] = f.enabled && bucket(userId, f.key) < f.rollout_pct;
     return {
@@ -112,7 +130,13 @@ export class AccountService {
   }
 
   private static readonly ALLOWED_EVENTS = new Set([
-    'app_open', 'onboarding_completed', 'onboarding_skipped', 'invite_shared', 'qr_scanned', 'message_sent', 'call_started',
+    'app_open',
+    'onboarding_completed',
+    'onboarding_skipped',
+    'invite_shared',
+    'qr_scanned',
+    'message_sent',
+    'call_started',
   ]);
 
   async countEvent(name: string) {

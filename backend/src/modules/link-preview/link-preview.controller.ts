@@ -12,6 +12,13 @@ export class LinkPreviewController {
   @Get()
   @Throttle({ default: { limit: 40, ttl: 60_000 } })
   async get(@Query('url') url: string) {
-    return (await this.linkPreviewService.preview(url ?? '')) ?? { url, title: null, description: null, siteName: null };
+    return (
+      (await this.linkPreviewService.preview(url ?? '')) ?? {
+        url,
+        title: null,
+        description: null,
+        siteName: null,
+      }
+    );
   }
 }

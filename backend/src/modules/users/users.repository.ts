@@ -25,18 +25,14 @@ export class UsersRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findByPhone(phoneE164: string): Promise<UserRow | null> {
-    const { rows } = await this.pool.query<UserRow>(
-      'SELECT * FROM users WHERE phone_e164 = $1',
-      [phoneE164],
-    );
+    const { rows } = await this.pool.query<UserRow>('SELECT * FROM users WHERE phone_e164 = $1', [
+      phoneE164,
+    ]);
     return rows[0] ?? null;
   }
 
   async findById(id: string): Promise<UserRow | null> {
-    const { rows } = await this.pool.query<UserRow>(
-      'SELECT * FROM users WHERE id = $1',
-      [id],
-    );
+    const { rows } = await this.pool.query<UserRow>('SELECT * FROM users WHERE id = $1', [id]);
     return rows[0] ?? null;
   }
 
@@ -94,16 +90,25 @@ export class UsersRepository {
    * whatever did change.
    */
   async setAvatarVersion(userId: string, version: number): Promise<void> {
-    await this.pool.query('UPDATE users SET avatar_version = $2, updated_at = now() WHERE id = $1', [userId, version]);
+    await this.pool.query(
+      'UPDATE users SET avatar_version = $2, updated_at = now() WHERE id = $1',
+      [userId, version],
+    );
   }
 
   /** True when both users are members of at least one common conversation (or are the same user). */
   async setE2eeKey(userId: string, publicKey: string): Promise<void> {
-    await this.pool.query('UPDATE users SET e2ee_public_key = $2, updated_at = now() WHERE id = $1', [userId, publicKey]);
+    await this.pool.query(
+      'UPDATE users SET e2ee_public_key = $2, updated_at = now() WHERE id = $1',
+      [userId, publicKey],
+    );
   }
 
   async getE2eeKey(userId: string): Promise<string | null> {
-    const { rows } = await this.pool.query<{ e2ee_public_key: string | null }>('SELECT e2ee_public_key FROM users WHERE id = $1', [userId]);
+    const { rows } = await this.pool.query<{ e2ee_public_key: string | null }>(
+      'SELECT e2ee_public_key FROM users WHERE id = $1',
+      [userId],
+    );
     return rows[0]?.e2ee_public_key ?? null;
   }
 
@@ -146,7 +151,10 @@ export class UsersRepository {
   }
 
   /** Read by NotificationsService before building a push payload — see that service's buildPayload for why this must always be read from the RECIPIENT, never the sender. */
-  async updateNotificationPrivacyMode(userId: string, mode: NotificationPrivacyMode): Promise<void> {
+  async updateNotificationPrivacyMode(
+    userId: string,
+    mode: NotificationPrivacyMode,
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE users SET notification_privacy_mode = $2, updated_at = now() WHERE id = $1`,
       [userId, mode],

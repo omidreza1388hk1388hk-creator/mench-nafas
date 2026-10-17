@@ -1,4 +1,16 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Res, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { AccountRepository } from './account.repository';
@@ -30,41 +42,69 @@ export class AdminController {
   @Get()
   panel(@Res() res: Response) {
     if (!process.env.ADMIN_API_KEY) throw new NotFoundException();
-    res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' });
+    res.set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Frame-Options': 'DENY',
+    });
     res.send(ADMIN_PANEL_HTML);
   }
 
-  @UseGuards(AdminGuard) @Get('api/stats')
-  stats() { return this.repo.adminStats(); }
-
-  @UseGuards(ModeratorGuard) @Get('api/users')
-  users(@Query('q') q?: string, @Query('limit') limit?: string) {
-    return this.repo.adminUsers(q?.trim() || undefined, Math.min(Math.max(Number(limit) || 50, 1), 200));
+  @UseGuards(AdminGuard)
+  @Get('api/stats')
+  stats() {
+    return this.repo.adminStats();
   }
 
-  @UseGuards(AdminGuard) @Get('api/feedback')
+  @UseGuards(ModeratorGuard)
+  @Get('api/users')
+  users(@Query('q') q?: string, @Query('limit') limit?: string) {
+    return this.repo.adminUsers(
+      q?.trim() || undefined,
+      Math.min(Math.max(Number(limit) || 50, 1), 200),
+    );
+  }
+
+  @UseGuards(AdminGuard)
+  @Get('api/feedback')
   feedback(@Query('limit') limit?: string) {
     return this.repo.adminFeedback(Math.min(Math.max(Number(limit) || 50, 1), 200));
   }
 
-  @UseGuards(AdminGuard) @Get('api/announcements')
-  announcements() { return this.repo.adminListAnnouncements(); }
+  @UseGuards(AdminGuard)
+  @Get('api/announcements')
+  announcements() {
+    return this.repo.adminListAnnouncements();
+  }
 
-  @UseGuards(AdminGuard) @Post('api/announcements')
-  addAnnouncement(@Body() dto: AnnouncementDto) { return this.repo.adminSaveAnnouncement(dto); }
+  @UseGuards(AdminGuard)
+  @Post('api/announcements')
+  addAnnouncement(@Body() dto: AnnouncementDto) {
+    return this.repo.adminSaveAnnouncement(dto);
+  }
 
-  @UseGuards(AdminGuard) @Post('api/announcements/:id/active') @HttpCode(204)
+  @UseGuards(AdminGuard)
+  @Post('api/announcements/:id/active')
+  @HttpCode(204)
   async setActive(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActiveDto) {
     await this.repo.adminSetAnnouncementActive(id, dto.active);
   }
 
-  @UseGuards(AdminGuard) @Get('api/flags')
-  flags() { return this.repo.allFlags(); }
+  @UseGuards(AdminGuard)
+  @Get('api/flags')
+  flags() {
+    return this.repo.allFlags();
+  }
 
-  @UseGuards(AdminGuard) @Post('api/flags') @HttpCode(204)
-  async saveFlag(@Body() dto: FlagDto) { await this.repo.adminUpsertFlag(dto); }
+  @UseGuards(AdminGuard)
+  @Post('api/flags')
+  @HttpCode(204)
+  async saveFlag(@Body() dto: FlagDto) {
+    await this.repo.adminUpsertFlag(dto);
+  }
 
-  @UseGuards(AdminGuard) @Get('api/analytics')
+  @UseGuards(AdminGuard)
+  @Get('api/analytics')
   analytics(@Query('days') days?: string) {
     return this.repo.adminAnalytics(Math.min(Math.max(Number(days) || 14, 1), 90));
   }

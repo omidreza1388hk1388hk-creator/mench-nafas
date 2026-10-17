@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
 import { randomBytes } from 'crypto';
 import { PG_POOL } from '../../database/database.module';
@@ -50,18 +56,32 @@ export class GrowthService {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const { rows } = await client.query<{ days: number; max_uses: number; used_count: number; expires_at: Date | null }>(
+      const { rows } = await client.query<{
+        days: number;
+        max_uses: number;
+        used_count: number;
+        expires_at: Date | null;
+      }>(
         'SELECT days, max_uses, used_count, expires_at FROM redeem_codes WHERE code = $1 FOR UPDATE',
         [code],
       );
       const c = rows[0];
-      if (!c || (c.expires_at && c.expires_at.getTime() < Date.now()) || c.used_count >= c.max_uses) {
+      if (
+        !c ||
+        (c.expires_at && c.expires_at.getTime() < Date.now()) ||
+        c.used_count >= c.max_uses
+      ) {
         throw new BadRequestException('Code is invalid, expired or already used up');
       }
-      const dup = await client.query('SELECT 1 FROM redeem_uses WHERE code = $1 AND user_id = $2', [code, userId]);
+      const dup = await client.query('SELECT 1 FROM redeem_uses WHERE code = $1 AND user_id = $2', [
+        code,
+        userId,
+      ]);
       if (dup.rows[0]) throw new BadRequestException('You already used this code');
       await client.query('INSERT INTO redeem_uses (code, user_id) VALUES ($1,$2)', [code, userId]);
-      await client.query('UPDATE redeem_codes SET used_count = used_count + 1 WHERE code = $1', [code]);
+      await client.query('UPDATE redeem_codes SET used_count = used_count + 1 WHERE code = $1', [
+        code,
+      ]);
       await client.query(
         `INSERT INTO entitlements (user_id, expires_at, source) VALUES ($1, now() + make_interval(days => $2), 'redeem')
          ON CONFLICT (user_id) DO UPDATE SET expires_at = GREATEST(entitlements.expires_at, now()) + make_interval(days => $2), source = 'redeem', updated_at = now()`,
@@ -79,8 +99,16 @@ export class GrowthService {
 
   async stickerPacks(userId: string) {
     const plus = (await this.plusStatus(userId)).active;
-    const { rows } = await this.pool.query('SELECT id, name, premium, glyphs FROM sticker_packs WHERE active ORDER BY sort, name');
-    return rows.map((p) => ({ id: p.id, name: p.name, premium: p.premium, locked: p.premium && !plus, glyphs: p.premium && !plus ? (p.glyphs as string[]).slice(0, 3) : p.glyphs }));
+    const { rows } = await this.pool.query(
+      'SELECT id, name, premium, glyphs FROM sticker_packs WHERE active ORDER BY sort, name',
+    );
+    return rows.map((p) => ({
+      id: p.id,
+      name: p.name,
+      premium: p.premium,
+      locked: p.premium && !plus,
+      glyphs: p.premium && !plus ? (p.glyphs as string[]).slice(0, 3) : p.glyphs,
+    }));
   }
 
   // ================= Referrals =================
@@ -94,13 +122,21 @@ export class GrowthService {
     if (!cfg.enabled) throw new ForbiddenException('Referrals are not active');
     const inviter = await this.account.resolveInvite((rawCode ?? '').trim());
     if (inviter.id === inviteeId) throw new BadRequestException('You cannot use your own code');
-    const me = await this.pool.query<{ created_at: Date }>('SELECT created_at FROM users WHERE id = $1 AND deleted_at IS NULL', [inviteeId]);
+    const me = await this.pool.query<{ created_at: Date }>(
+      'SELECT created_at FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [inviteeId],
+    );
     if (!me.rows[0]) throw new NotFoundException();
     if (Date.now() - me.rows[0].created_at.getTime() > cfg.max_account_age_days * 86400_000) {
-      throw new ForbiddenException('Invite codes can only be used within the first days of a new account');
+      throw new ForbiddenException(
+        'Invite codes can only be used within the first days of a new account',
+      );
     }
     try {
-      await this.pool.query('INSERT INTO referrals (inviter_id, invitee_id) VALUES ($1,$2)', [inviter.id, inviteeId]);
+      await this.pool.query('INSERT INTO referrals (inviter_id, invitee_id) VALUES ($1,$2)', [
+        inviter.id,
+        inviteeId,
+      ]);
     } catch (e: any) {
       if (e?.code === '23505') throw new BadRequestException('You already used an invite code');
       throw e;
@@ -120,14 +156,27 @@ export class GrowthService {
         'SELECT count(*) AS msgs, count(DISTINCT conversation_id) AS convs FROM messages WHERE sender_id = $1 AND deleted_at IS NULL',
         [ref.invitee_id],
       );
-      if (Number(stats.rows[0].msgs) < cfg.qualify_messages || Number(stats.rows[0].convs) < cfg.qualify_conversations) continue;
-      const rewarded = await this.pool.query<{ n: string }>("SELECT count(*) AS n FROM referrals WHERE inviter_id = $1 AND status = 'rewarded'", [inviterId]);
+      if (
+        Number(stats.rows[0].msgs) < cfg.qualify_messages ||
+        Number(stats.rows[0].convs) < cfg.qualify_conversations
+      )
+        continue;
+      const rewarded = await this.pool.query<{ n: string }>(
+        "SELECT count(*) AS n FROM referrals WHERE inviter_id = $1 AND status = 'rewarded'",
+        [inviterId],
+      );
       if (Number(rewarded.rows[0].n) >= cfg.max_rewards_per_user) {
-        await this.pool.query("UPDATE referrals SET status = 'qualified', qualified_at = now() WHERE id = $1", [ref.id]);
+        await this.pool.query(
+          "UPDATE referrals SET status = 'qualified', qualified_at = now() WHERE id = $1",
+          [ref.id],
+        );
         continue;
       }
       await this.grantPlusDays(inviterId, cfg.reward_plus_days, 'referral');
-      await this.pool.query("UPDATE referrals SET status = 'rewarded', qualified_at = now() WHERE id = $1", [ref.id]);
+      await this.pool.query(
+        "UPDATE referrals SET status = 'rewarded', qualified_at = now() WHERE id = $1",
+        [ref.id],
+      );
     }
   }
 
@@ -144,21 +193,39 @@ export class GrowthService {
       code: invite.code,
       link: `${PUBLIC_LINK_BASE}/i/${invite.code}`,
       rewardsEnabled: cfg.enabled,
-      rule: { qualifyMessages: cfg.qualify_messages, qualifyConversations: cfg.qualify_conversations, rewardPlusDays: cfg.reward_plus_days, maxRewards: cfg.max_rewards_per_user },
+      rule: {
+        qualifyMessages: cfg.qualify_messages,
+        qualifyConversations: cfg.qualify_conversations,
+        rewardPlusDays: cfg.reward_plus_days,
+        maxRewards: cfg.max_rewards_per_user,
+      },
       stats: {
         invited: rows.length,
         rewarded: rows.filter((r) => r.status === 'rewarded').length,
         pending: rows.filter((r) => r.status === 'pending').length,
       },
       // Privacy: only the first letter of the friend's name, never phone or full name.
-      history: rows.map((r) => ({ status: r.status, createdAt: r.created_at, qualifiedAt: r.qualified_at, initial: r.initial || '?' })),
+      history: rows.map((r) => ({
+        status: r.status,
+        createdAt: r.created_at,
+        qualifiedAt: r.qualified_at,
+        initial: r.initial || '?',
+      })),
     };
   }
 
   // ================= admin =================
-  async adminReferralConfig() { return this.config(); }
+  async adminReferralConfig() {
+    return this.config();
+  }
 
-  async adminSaveReferralConfig(c: { enabled: boolean; qualifyMessages: number; qualifyConversations: number; rewardPlusDays: number; maxRewardsPerUser: number }) {
+  async adminSaveReferralConfig(c: {
+    enabled: boolean;
+    qualifyMessages: number;
+    qualifyConversations: number;
+    rewardPlusDays: number;
+    maxRewardsPerUser: number;
+  }) {
     await this.pool.query(
       `UPDATE referral_config SET enabled=$1, qualify_messages=$2, qualify_conversations=$3, reward_plus_days=$4, max_rewards_per_user=$5 WHERE id`,
       [c.enabled, c.qualifyMessages, c.qualifyConversations, c.rewardPlusDays, c.maxRewardsPerUser],
@@ -173,19 +240,37 @@ export class GrowthService {
     const out: string[] = [];
     for (let i = 0; i < count; i++) {
       const code = randomBytes(5).toString('hex').toUpperCase();
-      await this.pool.query('INSERT INTO redeem_codes (code, days, max_uses, expires_at) VALUES ($1,$2,$3,$4)', [code, days, maxUses, expiresAt ?? null]);
+      await this.pool.query(
+        'INSERT INTO redeem_codes (code, days, max_uses, expires_at) VALUES ($1,$2,$3,$4)',
+        [code, days, maxUses, expiresAt ?? null],
+      );
       out.push(code);
     }
     return out;
   }
 
-  async adminSavePack(p: { id?: string; name: string; premium: boolean; active: boolean; sort: number; glyphs: string[] }) {
+  async adminSavePack(p: {
+    id?: string;
+    name: string;
+    premium: boolean;
+    active: boolean;
+    sort: number;
+    glyphs: string[];
+  }) {
     if (p.id) {
-      await this.pool.query('UPDATE sticker_packs SET name=$2, premium=$3, active=$4, sort=$5, glyphs=$6 WHERE id=$1', [p.id, p.name, p.premium, p.active, p.sort, p.glyphs]);
+      await this.pool.query(
+        'UPDATE sticker_packs SET name=$2, premium=$3, active=$4, sort=$5, glyphs=$6 WHERE id=$1',
+        [p.id, p.name, p.premium, p.active, p.sort, p.glyphs],
+      );
     } else {
-      await this.pool.query('INSERT INTO sticker_packs (name, premium, active, sort, glyphs) VALUES ($1,$2,$3,$4,$5)', [p.name, p.premium, p.active, p.sort, p.glyphs]);
+      await this.pool.query(
+        'INSERT INTO sticker_packs (name, premium, active, sort, glyphs) VALUES ($1,$2,$3,$4,$5)',
+        [p.name, p.premium, p.active, p.sort, p.glyphs],
+      );
     }
   }
 
-  async adminPacks() { return (await this.pool.query('SELECT * FROM sticker_packs ORDER BY sort, name')).rows; }
+  async adminPacks() {
+    return (await this.pool.query('SELECT * FROM sticker_packs ORDER BY sort, name')).rows;
+  }
 }

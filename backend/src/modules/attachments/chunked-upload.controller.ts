@@ -43,13 +43,21 @@ export class ChunkedUploadController {
   ) {}
 
   @Post()
-  async init(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: InitChunkedUploadDto) {
+  async init(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: InitChunkedUploadDto,
+  ) {
     await this.conversationsService.assertMember(conversationId, req.user.sub);
     return this.uploads.init({ userId: req.user.sub, conversationId, ...dto });
   }
 
   @Get(':uploadId')
-  status(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Param('uploadId', ParseUUIDPipe) uploadId: string) {
+  status(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Param('uploadId', ParseUUIDPipe) uploadId: string,
+  ) {
     return this.uploads.status(req.user.sub, conversationId, uploadId);
   }
 

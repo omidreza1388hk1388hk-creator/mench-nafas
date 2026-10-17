@@ -7,12 +7,12 @@
  * The Android client parses/renders them (RichBody.kt); the server only needs to recognise
  * them so notifications say "[sticker]" / "[GIF]" instead of leaking the marker.
  */
-const STICKER_PATTERN = /^sticker:v1:[A-Za-z0-9_%:.\-]{1,400}$/;
+const STICKER_PATTERN = /^sticker:v1:[A-Za-z0-9_%:.-]{1,400}$/;
 const GIF_PATTERN = /^gif:v1:[A-Za-z0-9]{5,32}:\d{1,4}:\d{1,4}$/;
 const POLL_PATTERN = /^poll:v1:[0-9a-fA-F-]{36}$/;
 const SURPRISE_PATTERN = /^surprise:v1:[A-Za-z0-9_%.-]{1,4000}$/;
 const E2EE_PATTERN = /^e2ee:v2:[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
-const CONTACT_PATTERN = /^contact:v1:[A-Za-z0-9_%.\-]{1,300}:\+?[0-9%A-Za-z]{1,60}$/;
+const CONTACT_PATTERN = /^contact:v1:[A-Za-z0-9_%.-]{1,300}:\+?[0-9%A-Za-z]{1,60}$/;
 const LOCATION_PATTERN = /^loc:v1:-?\d{1,3}\.\d{1,7}:-?\d{1,3}\.\d{1,7}$/;
 
 export function describeRichBody(body: string): string | null {

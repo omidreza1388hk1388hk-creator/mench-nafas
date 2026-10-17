@@ -47,13 +47,23 @@ export class SearchService {
     // real product need, so those two are simply skipped when empty.
     const [messageRows, conversationRows, fileRows] = await Promise.all([
       wantsMessages && trimmedQuery.length > 0
-        ? this.searchRepository.searchMessages(userId, likeQuery, effectiveLimit, effectiveConversationId)
+        ? this.searchRepository.searchMessages(
+            userId,
+            likeQuery,
+            effectiveLimit,
+            effectiveConversationId,
+          )
         : Promise.resolve([]),
       wantsConversations && trimmedQuery.length > 0
         ? this.searchRepository.searchConversations(userId, likeQuery, effectiveLimit)
         : Promise.resolve([]),
       wantsFiles
-        ? this.searchRepository.searchFiles(userId, likeQuery, effectiveLimit, effectiveConversationId)
+        ? this.searchRepository.searchFiles(
+            userId,
+            likeQuery,
+            effectiveLimit,
+            effectiveConversationId,
+          )
         : Promise.resolve([]),
     ]);
 

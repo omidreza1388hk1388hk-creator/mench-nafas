@@ -1,4 +1,10 @@
-import { isLocked, lockUntilAfterFailure, passwordProblem, MAX_FAILED_ATTEMPTS, LOCK_MINUTES } from './two-step.policy';
+import {
+  isLocked,
+  lockUntilAfterFailure,
+  passwordProblem,
+  MAX_FAILED_ATTEMPTS,
+  LOCK_MINUTES,
+} from './two-step.policy';
 
 describe('two-step policy', () => {
   it('rejects short, long and repeated-character passwords', () => {

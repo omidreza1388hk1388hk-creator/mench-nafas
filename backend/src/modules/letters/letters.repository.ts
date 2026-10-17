@@ -46,8 +46,14 @@ export class LettersRepository {
    * Atomically claims letters whose unlock time has passed and whose reminder has not been sent. Marking them in the same
    * statement (with SKIP LOCKED) means a letter is reminded exactly once even with several server instances.
    */
-  async claimDueReminders(limit: number): Promise<{ id: string; conversation_id: string; author_id: string }[]> {
-    const { rows } = await this.pool.query<{ id: string; conversation_id: string; author_id: string }>(
+  async claimDueReminders(
+    limit: number,
+  ): Promise<{ id: string; conversation_id: string; author_id: string }[]> {
+    const { rows } = await this.pool.query<{
+      id: string;
+      conversation_id: string;
+      author_id: string;
+    }>(
       `UPDATE love_letters SET unlock_notified_at = now()
         WHERE id IN (
           SELECT id FROM love_letters
@@ -61,7 +67,9 @@ export class LettersRepository {
   }
 
   async findById(letterId: string): Promise<LetterRow | null> {
-    const { rows } = await this.pool.query<LetterRow>('SELECT * FROM love_letters WHERE id = $1', [letterId]);
+    const { rows } = await this.pool.query<LetterRow>('SELECT * FROM love_letters WHERE id = $1', [
+      letterId,
+    ]);
     return rows[0] ?? null;
   }
 

@@ -59,7 +59,10 @@ export function toCallSessionDto(row: CallRow, iceServers: IceServerDto[]): Call
   };
 }
 
-export function toCallHistorySummaryDto(row: CallHistoryRow, requestingUserId: string): CallHistorySummaryDto {
+export function toCallHistorySummaryDto(
+  row: CallHistoryRow,
+  requestingUserId: string,
+): CallHistorySummaryDto {
   const durationSeconds =
     row.answered_at && row.ended_at
       ? Math.max(0, Math.round((row.ended_at.getTime() - row.answered_at.getTime()) / 1000))

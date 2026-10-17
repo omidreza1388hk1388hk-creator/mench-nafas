@@ -1,8 +1,22 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from './conversations.repository';
 import { UsersService } from '../users/users.service';
-import { ConversationDto, ConversationMemberDto, toConversationDto, toConversationMemberDto } from './conversation.dto';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  ConversationDto,
+  ConversationMemberDto,
+  toConversationDto,
+  toConversationMemberDto,
+} from './conversation.dto';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { allowed, canRemoveMember, DEFAULT_GROUP_SETTINGS, toRole } from './group-policy';
 
@@ -41,12 +55,18 @@ export class ConversationsService {
       targetUserId,
     );
     if (existing) {
-      const otherMember = await this.conversationsRepository.getOtherMember(existing.id, requestingUserId);
+      const otherMember = await this.conversationsRepository.getOtherMember(
+        existing.id,
+        requestingUserId,
+      );
       return toConversationDto(existing, otherMember);
     }
 
     const created = await this.conversationsRepository.createDirect(requestingUserId, targetUserId);
-    const otherMember = await this.conversationsRepository.getOtherMember(created.id, requestingUserId);
+    const otherMember = await this.conversationsRepository.getOtherMember(
+      created.id,
+      requestingUserId,
+    );
     return toConversationDto(created, otherMember);
   }
 
@@ -100,21 +120,42 @@ export class ConversationsService {
   }
 
   /** Phase 11: pin/unpin a message (any member). Everyone, including this user's other devices, is told live. */
-  async setPinnedMessage(conversationId: string, userId: string, messageId: string | null): Promise<void> {
+  async setPinnedMessage(
+    conversationId: string,
+    userId: string,
+    messageId: string | null,
+  ): Promise<void> {
     await this.assertMember(conversationId, userId);
     if (await this.conversationsRepository.isGroup(conversationId)) {
-      await this.assertGroupPermission(conversationId, userId, 'pinMessages', 'Only admins can pin messages in this group');
+      await this.assertGroupPermission(
+        conversationId,
+        userId,
+        'pinMessages',
+        'Only admins can pin messages in this group',
+      );
     }
-    if (messageId && !(await this.conversationsRepository.messageBelongsToConversation(messageId, conversationId))) {
+    if (
+      messageId &&
+      !(await this.conversationsRepository.messageBelongsToConversation(messageId, conversationId))
+    ) {
       throw new BadRequestException('Message does not belong to this conversation');
     }
     await this.conversationsRepository.setPinnedMessage(conversationId, messageId);
     const memberIds = await this.conversationsRepository.listMemberIds(conversationId);
-    this.realtimeBroadcaster.broadcastToUsers(memberIds, { type: 'pin.changed', conversationId, messageId });
+    this.realtimeBroadcaster.broadcastToUsers(memberIds, {
+      type: 'pin.changed',
+      conversationId,
+      messageId,
+    });
   }
 
   /** Phase 9: today's mood. Either person sets their own; the partner's phone updates live. No push (it's ambient, not a ping). */
-  async setMood(conversationId: string, userId: string, emoji: string, text?: string): Promise<void> {
+  async setMood(
+    conversationId: string,
+    userId: string,
+    emoji: string,
+    text?: string,
+  ): Promise<void> {
     await this.assertDirect(conversationId, userId);
     const cleanText = text?.trim() || null;
     await this.conversationsRepository.setMood(conversationId, userId, emoji, cleanText);
@@ -146,7 +187,11 @@ export class ConversationsService {
   async sendMissYou(conversationId: string, userId: string): Promise<void> {
     await this.assertDirect(conversationId, userId);
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(otherIds, { type: 'miss_you', conversationId, from: userId });
+    this.realtimeBroadcaster.broadcastToUsers(otherIds, {
+      type: 'miss_you',
+      conversationId,
+      from: userId,
+    });
 
     const muted = new Set(await this.conversationsRepository.listMutedMemberIds(conversationId));
     const sender = await this.usersService.findById(userId);
@@ -162,10 +207,19 @@ export class ConversationsService {
    * that arrives hours later is just noise. Returns whether anyone was online to
    * feel it, so the sender's phone can say so honestly.
    */
-  async sendHeartbeat(conversationId: string, userId: string, durationMs: number): Promise<{ delivered: boolean }> {
+  async sendHeartbeat(
+    conversationId: string,
+    userId: string,
+    durationMs: number,
+  ): Promise<{ delivered: boolean }> {
     await this.assertDirect(conversationId, userId);
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(otherIds, { type: 'heartbeat', conversationId, from: userId, durationMs });
+    this.realtimeBroadcaster.broadcastToUsers(otherIds, {
+      type: 'heartbeat',
+      conversationId,
+      from: userId,
+      durationMs,
+    });
     const delivered = otherIds.some((id) => this.realtimeBroadcaster.isUserConnected(id));
     return { delivered };
   }
@@ -174,7 +228,12 @@ export class ConversationsService {
   async sendTogether(
     conversationId: string,
     userId: string,
-    input: { kind: 'start' | 'sync' | 'stop'; attachmentId?: string; positionMs: number; playing: boolean },
+    input: {
+      kind: 'start' | 'sync' | 'stop';
+      attachmentId?: string;
+      positionMs: number;
+      playing: boolean;
+    },
   ): Promise<void> {
     await this.assertDirect(conversationId, userId);
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
@@ -194,14 +253,24 @@ export class ConversationsService {
   async sendScreenEffect(conversationId: string, userId: string, effect: string): Promise<void> {
     await this.assertMember(conversationId, userId);
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(otherIds, { type: 'screen_effect', conversationId, from: userId, effect });
+    this.realtimeBroadcaster.broadcastToUsers(otherIds, {
+      type: 'screen_effect',
+      conversationId,
+      from: userId,
+      effect,
+    });
   }
 
   /** Phase 9: a hug or a kiss. Same delivery rules as sendMissYou — live event, else push (skipped if muted). */
   async sendAffection(conversationId: string, userId: string, kind: 'hug' | 'kiss'): Promise<void> {
     await this.assertDirect(conversationId, userId);
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(otherIds, { type: 'affection', conversationId, from: userId, kind });
+    this.realtimeBroadcaster.broadcastToUsers(otherIds, {
+      type: 'affection',
+      conversationId,
+      from: userId,
+      kind,
+    });
 
     const muted = new Set(await this.conversationsRepository.listMutedMemberIds(conversationId));
     const sender = await this.usersService.findById(userId);
@@ -231,7 +300,11 @@ export class ConversationsService {
    * before conversation_members' FK constraint would (a raw FK violation
    * would leak as an ugly 500, not a clean 400).
    */
-  async createGroup(requestingUserId: string, title: string, memberIds: string[]): Promise<ConversationDto> {
+  async createGroup(
+    requestingUserId: string,
+    title: string,
+    memberIds: string[],
+  ): Promise<ConversationDto> {
     const trimmedTitle = title.trim();
     if (trimmedTitle.length === 0) {
       throw new BadRequestException('Group title cannot be empty');
@@ -247,20 +320,36 @@ export class ConversationsService {
       throw new NotFoundException('One or more members were not found');
     }
 
-    const created = await this.conversationsRepository.createGroup(requestingUserId, trimmedTitle, uniqueOtherMemberIds);
+    const created = await this.conversationsRepository.createGroup(
+      requestingUserId,
+      trimmedTitle,
+      uniqueOtherMemberIds,
+    );
     return toConversationDto(created, null);
   }
 
-  async listMembers(conversationId: string, requestingUserId: string): Promise<ConversationMemberDto[]> {
+  async listMembers(
+    conversationId: string,
+    requestingUserId: string,
+  ): Promise<ConversationMemberDto[]> {
     await this.assertMember(conversationId, requestingUserId);
     const rows = await this.conversationsRepository.listMembers(conversationId);
     return rows.map(toConversationMemberDto);
   }
 
   /** Anyone already in the group can add more members — matches common WhatsApp/Telegram-style group permissions, unlike removeMember below where removing someone ELSE requires being the owner. */
-  async addMembers(conversationId: string, requestingUserId: string, memberIds: string[]): Promise<void> {
+  async addMembers(
+    conversationId: string,
+    requestingUserId: string,
+    memberIds: string[],
+  ): Promise<void> {
     await this.assertGroup(conversationId, requestingUserId);
-    await this.assertGroupPermission(conversationId, requestingUserId, 'addMembers', 'Only admins can add members to this group');
+    await this.assertGroupPermission(
+      conversationId,
+      requestingUserId,
+      'addMembers',
+      'Only admins can add members to this group',
+    );
 
     const uniqueIds = [...new Set(memberIds)];
     const foundUsers = await this.usersService.findManyByIds(uniqueIds);
@@ -319,14 +408,22 @@ export class ConversationsService {
    * for a "self" special case would just be two ways to do the same
    * DELETE.
    */
-  async removeMember(conversationId: string, requestingUserId: string, targetUserId: string): Promise<void> {
+  async removeMember(
+    conversationId: string,
+    requestingUserId: string,
+    targetUserId: string,
+  ): Promise<void> {
     await this.assertGroup(conversationId, requestingUserId);
 
     const isSelfRemoval = targetUserId === requestingUserId;
     if (!isSelfRemoval) {
       // Phase 2A: owner removes anyone else; an admin removes plain members only (see group-policy.ts).
-      const actorRole = toRole(await this.conversationsRepository.getRole(conversationId, requestingUserId));
-      const targetRole = toRole(await this.conversationsRepository.getRole(conversationId, targetUserId));
+      const actorRole = toRole(
+        await this.conversationsRepository.getRole(conversationId, requestingUserId),
+      );
+      const targetRole = toRole(
+        await this.conversationsRepository.getRole(conversationId, targetUserId),
+      );
       if (!canRemoveMember(actorRole, targetRole)) {
         throw new ForbiddenException('You are not allowed to remove this member');
       }
@@ -344,13 +441,27 @@ export class ConversationsService {
       memberIdsBeforeRemoval,
       isSelfRemoval
         ? { type: 'group.member_left', conversationId, userId: targetUserId }
-        : { type: 'group.member_removed', conversationId, userId: targetUserId, removedBy: requestingUserId },
+        : {
+            type: 'group.member_removed',
+            conversationId,
+            userId: targetUserId,
+            removedBy: requestingUserId,
+          },
     );
   }
 
-  async renameGroup(conversationId: string, requestingUserId: string, title: string): Promise<void> {
+  async renameGroup(
+    conversationId: string,
+    requestingUserId: string,
+    title: string,
+  ): Promise<void> {
     await this.assertGroup(conversationId, requestingUserId);
-    await this.assertGroupPermission(conversationId, requestingUserId, 'editInfo', 'Only admins can edit this group');
+    await this.assertGroupPermission(
+      conversationId,
+      requestingUserId,
+      'editInfo',
+      'Only admins can edit this group',
+    );
     const trimmedTitle = title.trim();
     if (trimmedTitle.length === 0) {
       throw new BadRequestException('Group title cannot be empty');
@@ -381,7 +492,9 @@ export class ConversationsService {
     permission: 'addMembers' | 'editInfo' | 'pinMessages',
     message: string,
   ): Promise<void> {
-    const settings = (await this.conversationsRepository.getGroupSettings(conversationId)) ?? DEFAULT_GROUP_SETTINGS;
+    const settings =
+      (await this.conversationsRepository.getGroupSettings(conversationId)) ??
+      DEFAULT_GROUP_SETTINGS;
     const role = toRole(await this.conversationsRepository.getRole(conversationId, userId));
     if (!allowed(settings[permission], role)) throw new ForbiddenException(message);
   }

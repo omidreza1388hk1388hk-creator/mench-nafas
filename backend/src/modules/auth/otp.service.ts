@@ -29,7 +29,10 @@ export class OtpService {
     const stillCoolingDown = await this.redis.get(cooldownKey);
     if (stillCoolingDown) {
       // 429 (not 400) so clients can tell "wait a moment" apart from "this phone number is invalid".
-      throw new HttpException('Please wait before requesting another code', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Please wait before requesting another code',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const length = this.config.get<number>('OTP_LENGTH') as number;

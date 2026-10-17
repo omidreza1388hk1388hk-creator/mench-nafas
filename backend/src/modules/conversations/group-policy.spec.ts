@@ -1,5 +1,12 @@
 import {
-  allowed, canChangeRole, canRemoveMember, decideSend, inviteProblem, isAdmin, parseSettingsPatch, toRole,
+  allowed,
+  canChangeRole,
+  canRemoveMember,
+  decideSend,
+  inviteProblem,
+  isAdmin,
+  parseSettingsPatch,
+  toRole,
 } from './group-policy';
 
 describe('group policy', () => {
@@ -53,16 +60,29 @@ describe('group policy', () => {
   it('slow mode makes a member wait, reports the remaining seconds, and never applies to admins', () => {
     const slow = { sendMessages: 'all' as const, slowModeSeconds: 30 };
     const last = 100_000;
-    expect(decideSend(slow, 'member', last, last + 10_000)).toEqual({ ok: false, reason: 'slow_mode', retryAfterSeconds: 20 });
-    expect(decideSend(slow, 'member', last, last + 29_001)).toEqual({ ok: false, reason: 'slow_mode', retryAfterSeconds: 1 });
+    expect(decideSend(slow, 'member', last, last + 10_000)).toEqual({
+      ok: false,
+      reason: 'slow_mode',
+      retryAfterSeconds: 20,
+    });
+    expect(decideSend(slow, 'member', last, last + 29_001)).toEqual({
+      ok: false,
+      reason: 'slow_mode',
+      retryAfterSeconds: 1,
+    });
     expect(decideSend(slow, 'member', last, last + 30_000)).toEqual({ ok: true });
     expect(decideSend(slow, 'member', null, last)).toEqual({ ok: true });
     expect(decideSend(slow, 'admin', last, last + 1000)).toEqual({ ok: true });
-    expect(decideSend({ sendMessages: 'all', slowModeSeconds: 0 }, 'member', last, last + 1)).toEqual({ ok: true });
+    expect(
+      decideSend({ sendMessages: 'all', slowModeSeconds: 0 }, 'member', last, last + 1),
+    ).toEqual({ ok: true });
   });
 
   it('validates settings patches strictly', () => {
-    expect(parseSettingsPatch({ sendMessages: 'admins', slowModeSeconds: 60 })).toEqual({ sendMessages: 'admins', slowModeSeconds: 60 });
+    expect(parseSettingsPatch({ sendMessages: 'admins', slowModeSeconds: 60 })).toEqual({
+      sendMessages: 'admins',
+      slowModeSeconds: 60,
+    });
     expect(parseSettingsPatch({ pinMessages: 'admins' })).toEqual({ pinMessages: 'admins' });
     expect(parseSettingsPatch({})).toBeNull();
     expect(parseSettingsPatch({ sendMessages: 'nobody' })).toBeNull();

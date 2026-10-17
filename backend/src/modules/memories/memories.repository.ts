@@ -39,7 +39,9 @@ export class MemoriesRepository {
   }
 
   async findById(memoryId: string): Promise<MemoryRow | null> {
-    const { rows } = await this.pool.query<MemoryRow>('SELECT * FROM memories WHERE id = $1', [memoryId]);
+    const { rows } = await this.pool.query<MemoryRow>('SELECT * FROM memories WHERE id = $1', [
+      memoryId,
+    ]);
     return rows[0] ?? null;
   }
 
@@ -48,7 +50,10 @@ export class MemoriesRepository {
   }
 
   /** The photo must be an image uploaded to THIS conversation (queried directly to avoid a module cycle with AttachmentsModule). */
-  async isImageAttachmentOfConversation(attachmentId: string, conversationId: string): Promise<boolean> {
+  async isImageAttachmentOfConversation(
+    attachmentId: string,
+    conversationId: string,
+  ): Promise<boolean> {
     const { rows } = await this.pool.query(
       `SELECT 1 FROM attachments WHERE id = $1 AND conversation_id = $2 AND kind = 'image'`,
       [attachmentId, conversationId],

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -39,6 +40,11 @@ import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.ArrowBack
@@ -107,6 +113,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.omidgame.mench.feature.product.ProductMessageActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -276,6 +283,7 @@ fun ChatScreen(
     onLoadEditHistory: suspend (Message) -> List<com.omidgame.mench.feature.chat.domain.EditVersion>? = { null },
     onTranslate: suspend (Message) -> String? = { null },
 ) {
+    val context = LocalContext.current
     var showUsDialog by remember { mutableStateOf(false) }
     val usSettings = rememberUsSettings()
 
@@ -441,7 +449,6 @@ fun ChatScreen(
     val chatBackdrop = remember(chatPrimary, chatBackground, wallpaper, chatAccentOverride) { wallpaper.brush(chatBackground, chatAccentOverride ?: chatPrimary) }
     var heartGlyphs by remember { mutableStateOf(glyphsFor("love")) }
     var heartBurst by remember { mutableStateOf(0) }
-    val context = androidx.compose.ui.platform.LocalContext.current
     // Heart-ish reaction added to a message we already knew about -> float hearts.
     // Tracked per message so opening a chat or loading older history never triggers it.
     val knownHeartCounts = remember { mutableMapOf<String, Int>() }
@@ -491,6 +498,12 @@ fun ChatScreen(
     }
 
     // --- Phase 3A: live heartbeat + full-screen message effects ---
+    var activeEffect by remember { mutableStateOf<MessageEffect?>(null) }
+    var effectKey by remember { mutableStateOf(0) }
+    fun playEffect(effect: MessageEffect) {
+        activeEffect = effect
+        effectKey++
+    }
     val effectsEnabled = rememberEffectSetting(MessageEffectSettings.KEY_EFFECTS)
     val heartbeatVibration = rememberEffectSetting(MessageEffectSettings.KEY_HEARTBEAT_VIBRATION)
     var heartbeatKey by remember { mutableStateOf(0) }
@@ -506,12 +519,6 @@ fun ChatScreen(
                 android.widget.Toast.makeText(context, R.string.heartbeat_synced, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
-    }
-    var activeEffect by remember { mutableStateOf<MessageEffect?>(null) }
-    var effectKey by remember { mutableStateOf(0) }
-    fun playEffect(effect: MessageEffect) {
-        activeEffect = effect
-        effectKey++
     }
     // Incoming words that trigger an effect. The first batch of messages is history and never plays;
     // later batches only play for recent messages, so scrolling back through old chat stays quiet.
@@ -651,7 +658,7 @@ fun ChatScreen(
                         // which are conditional — so this one has no isGroup
                         // gate.
                         IconButton(onClick = { searchQuery = if (searchQuery == null) "" else null }) {
-                            Icon(androidx.compose.material.icons.Icons.Filled.Search, contentDescription = null)
+                            Icon(Icons.Filled.Search, contentDescription = null)
                         }
                         IconButton(onClick = { showChatSecurity = true }) {
                             Icon(Icons.Filled.Lock, contentDescription = stringResource(R.string.chat_security_title))
@@ -1767,7 +1774,7 @@ private fun MessageActionSheet(
                 ActionRow(stringResource(R.string.chat_delete), destructive = true) { onDeleteMessage(message) }
             }
             // Phase 1D: save to personal cloud, remind me, report.
-            com.omidgame.mench.feature.product.ProductMessageActions(message = message, onDone = onDismiss)
+            ProductMessageActions(message = message, onDone = onDismiss)
         }
     }
 }
@@ -2353,6 +2360,8 @@ private fun Composer(
                     showSendOptions = false
                 },
                 onDismiss = { showSendOptions = false },
+                // Full-screen effect for this message; only offered when there is text to send.
+                onEffect = if (text.isNotBlank()) ({ showEffectPicker = true }) else null,
             )
         }
         if (showRoundVideo) {
@@ -2548,8 +2557,6 @@ private fun Composer(
                         text = ""
                     }
                 },
-                // Long-press: choose a full-screen effect for this message (not while editing).
-                onLongClick = if (editingMessage == null) ({ showEffectPicker = true }) else null,
             )
         }
     }
@@ -2598,22 +2605,22 @@ private fun SelectionTopBar(
                     clipboard.setText(androidx.compose.ui.text.AnnotatedString(copyable.joinToString("\n") { it.body.orEmpty() }))
                     onCopied()
                 }) {
-                    Icon(androidx.compose.material.icons.Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.chat_copy))
+                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.chat_copy))
                 }
             }
             if (canPin) {
                 IconButton(onClick = onPin) {
-                    Icon(androidx.compose.material.icons.Icons.Filled.PushPin, contentDescription = stringResource(R.string.pin_message))
+                    Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.pin_message))
                 }
             }
             if (canForward) {
                 IconButton(onClick = onForward) {
-                    Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.chat_forward))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.chat_forward))
                 }
             }
             if (canDelete) {
                 IconButton(onClick = onDelete) {
-                    Icon(androidx.compose.material.icons.Icons.Filled.Delete, contentDescription = stringResource(R.string.chat_delete))
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.chat_delete))
                 }
             }
         },

@@ -45,7 +45,9 @@ describe('LocalDiskStorageProvider', () => {
   });
 
   it('refuses a deeply nested traversal attempt the same way', async () => {
-    await expect(provider.get('../../../../../../etc/passwd')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(provider.get('../../../../../../etc/passwd')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('deleting a nonexistent key does not throw', async () => {

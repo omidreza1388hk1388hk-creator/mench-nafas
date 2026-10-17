@@ -35,10 +35,13 @@ export class MapsService {
   ) {}
 
   async getTile(z: number, x: number, y: number): Promise<Tile> {
-    if (![z, x, y].every(Number.isInteger)) throw new BadRequestException('Tile coordinates must be integers');
-    if (z < MIN_ZOOM || z > MAX_ZOOM) throw new BadRequestException(`Zoom must be between ${MIN_ZOOM} and ${MAX_ZOOM}`);
+    if (![z, x, y].every(Number.isInteger))
+      throw new BadRequestException('Tile coordinates must be integers');
+    if (z < MIN_ZOOM || z > MAX_ZOOM)
+      throw new BadRequestException(`Zoom must be between ${MIN_ZOOM} and ${MAX_ZOOM}`);
     const max = 2 ** z;
-    if (x < 0 || y < 0 || x >= max || y >= max) throw new BadRequestException('Tile is outside the map');
+    if (x < 0 || y < 0 || x >= max || y >= max)
+      throw new BadRequestException('Tile is outside the map');
 
     const key = `${z}/${x}/${y}`;
     const hit = this.cache.get(key);
@@ -49,21 +52,29 @@ export class MapsService {
     }
 
     const template = this.config.get<string>('MAP_TILE_URL_TEMPLATE') || DEFAULT_TEMPLATE;
-    const url = template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
-    const userAgent = this.config.get<string>('MAP_TILE_USER_AGENT') || 'MENCH-private-messenger/1.0';
+    const url = template
+      .replace('{z}', String(z))
+      .replace('{x}', String(x))
+      .replace('{y}', String(y));
+    const userAgent =
+      this.config.get<string>('MAP_TILE_USER_AGENT') || 'MENCH-private-messenger/1.0';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const response = await (this.fetcher as unknown as (u: string, i: unknown) => ReturnType<FetchLike>)(url, {
+      const response = await (
+        this.fetcher as unknown as (u: string, i: unknown) => ReturnType<FetchLike>
+      )(url, {
         signal: controller.signal,
         redirect: 'error',
         headers: { 'User-Agent': userAgent },
       });
       if (!response.ok) throw new BadGatewayException(`Map provider error (${response.status})`);
       const contentType = (response.headers.get('content-type') ?? '').split(';')[0].trim();
-      if (!contentType.startsWith('image/')) throw new BadGatewayException('Map provider returned a non-image');
+      if (!contentType.startsWith('image/'))
+        throw new BadGatewayException('Map provider returned a non-image');
       const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.length === 0 || buffer.length > MAX_TILE_BYTES) throw new BadGatewayException('Unexpected tile size');
+      if (buffer.length === 0 || buffer.length > MAX_TILE_BYTES)
+        throw new BadGatewayException('Unexpected tile size');
       const tile = { buffer, contentType };
       this.store(key, tile);
       return tile;

@@ -37,7 +37,11 @@ describe('requestLogger', () => {
 
   it('reuses a sane incoming request id and rejects a suspicious one', () => {
     const good = fakeRes();
-    requestLogger(() => undefined)(fakeReq('/x', { 'x-request-id': 'abc-12345678' }), good, jest.fn());
+    requestLogger(() => undefined)(
+      fakeReq('/x', { 'x-request-id': 'abc-12345678' }),
+      good,
+      jest.fn(),
+    );
     expect(good.headers['X-Request-Id']).toBe('abc-12345678');
 
     const bad = fakeRes();

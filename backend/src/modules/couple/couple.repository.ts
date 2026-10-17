@@ -16,7 +16,12 @@ export interface WishRow {
 export class CoupleRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async upsertAnswer(conversationId: string, date: string, userId: string, answer: string): Promise<void> {
+  async upsertAnswer(
+    conversationId: string,
+    date: string,
+    userId: string,
+    answer: string,
+  ): Promise<void> {
     await this.pool.query(
       `INSERT INTO daily_answers (conversation_id, question_date, user_id, answer)
        VALUES ($1, $2, $3, $4)
@@ -37,7 +42,10 @@ export class CoupleRepository {
     return rows.map((r: { question_date: string }) => r.question_date);
   }
 
-  async listAnswers(conversationId: string, date: string): Promise<{ user_id: string; answer: string }[]> {
+  async listAnswers(
+    conversationId: string,
+    date: string,
+  ): Promise<{ user_id: string; answer: string }[]> {
     const { rows } = await this.pool.query(
       'SELECT user_id, answer FROM daily_answers WHERE conversation_id = $1 AND question_date = $2',
       [conversationId, date],
@@ -62,7 +70,9 @@ export class CoupleRepository {
   }
 
   async findWish(wishId: string): Promise<WishRow | null> {
-    const { rows } = await this.pool.query<WishRow>('SELECT * FROM wishlist_items WHERE id = $1', [wishId]);
+    const { rows } = await this.pool.query<WishRow>('SELECT * FROM wishlist_items WHERE id = $1', [
+      wishId,
+    ]);
     return rows[0] ?? null;
   }
 

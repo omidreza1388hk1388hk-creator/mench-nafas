@@ -8,7 +8,10 @@ function build(handler: () => any, env: Record<string, string> = {}) {
     calls.push({ url, init });
     return handler();
   }) as any;
-  return { service: new MapsService({ get: (k: string) => env[k] } as unknown as ConfigService, fetcher), calls };
+  return {
+    service: new MapsService({ get: (k: string) => env[k] } as unknown as ConfigService, fetcher),
+    calls,
+  };
 }
 
 const png = (bytes = 100, type = 'image/png') => ({
@@ -32,7 +35,10 @@ describe('MapsService', () => {
   });
 
   it('honours a custom template and user agent', async () => {
-    const { service, calls } = build(() => png(), { MAP_TILE_URL_TEMPLATE: 'https://tiles.example.org/{z}/{x}/{y}.png', MAP_TILE_USER_AGENT: 'Mine/2' });
+    const { service, calls } = build(() => png(), {
+      MAP_TILE_URL_TEMPLATE: 'https://tiles.example.org/{z}/{x}/{y}.png',
+      MAP_TILE_USER_AGENT: 'Mine/2',
+    });
     await service.getTile(10, 5, 5);
     expect(calls[0].url).toBe('https://tiles.example.org/10/5/5.png');
     expect(calls[0].init.headers['User-Agent']).toBe('Mine/2');
@@ -49,10 +55,23 @@ describe('MapsService', () => {
   });
 
   it('rejects provider errors, non-images and oversized tiles', async () => {
-    await expect(build(() => ({ ...png(), ok: false, status: 500 })).service.getTile(10, 1, 1)).rejects.toBeInstanceOf(BadGatewayException);
-    await expect(build(() => png(10, 'text/html')).service.getTile(10, 1, 1)).rejects.toBeInstanceOf(BadGatewayException);
-    await expect(build(() => png(600 * 1024)).service.getTile(10, 1, 1)).rejects.toBeInstanceOf(BadGatewayException);
-    const failing = new MapsService({ get: () => undefined } as unknown as ConfigService, (async () => { throw new Error('down'); }) as any);
-    await expect(failing.getTile(10, 1, 1)).rejects.toMatchObject({ message: 'Map provider is unreachable' });
+    await expect(
+      build(() => ({ ...png(), ok: false, status: 500 })).service.getTile(10, 1, 1),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(
+      build(() => png(10, 'text/html')).service.getTile(10, 1, 1),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(build(() => png(600 * 1024)).service.getTile(10, 1, 1)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    const failing = new MapsService(
+      { get: () => undefined } as unknown as ConfigService,
+      (async () => {
+        throw new Error('down');
+      }) as any,
+    );
+    await expect(failing.getTile(10, 1, 1)).rejects.toMatchObject({
+      message: 'Map provider is unreachable',
+    });
   });
 });

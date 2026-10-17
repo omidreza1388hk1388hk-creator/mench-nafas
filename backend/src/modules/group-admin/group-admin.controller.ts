@@ -1,7 +1,24 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
-import { ChangeRoleDto, CreateInviteDto, TransferOwnerDto, UpdateGroupSettingsDto } from './dto/group-admin.dto';
+import {
+  ChangeRoleDto,
+  CreateInviteDto,
+  TransferOwnerDto,
+  UpdateGroupSettingsDto,
+} from './dto/group-admin.dto';
 import { GroupAdminService } from './group-admin.service';
 
 @UseGuards(JwtAuthGuard)
@@ -15,7 +32,11 @@ export class GroupAdminController {
   }
 
   @Patch('conversations/:conversationId/group')
-  update(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: UpdateGroupSettingsDto) {
+  update(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: UpdateGroupSettingsDto,
+  ) {
     return this.service.updateSettings(conversationId, req.user.sub, { ...dto });
   }
 
@@ -43,7 +64,11 @@ export class GroupAdminController {
 
   @Post('conversations/:conversationId/invites')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  createInvite(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateInviteDto) {
+  createInvite(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: CreateInviteDto,
+  ) {
     return this.service.createInvite(conversationId, req.user.sub, dto);
   }
 

@@ -16,13 +16,18 @@ describe('PlannerService', () => {
   });
 
   it('stores participants and a cleaned checklist on create', async () => {
-    query.mockResolvedValue({ rows: [{ id: '1', kind: 'event', title: 'Dinner', participants: ['Sara'], checklist: [] }] });
+    query.mockResolvedValue({
+      rows: [{ id: '1', kind: 'event', title: 'Dinner', participants: ['Sara'], checklist: [] }],
+    });
     const dto = await service.create('user-1', {
       kind: 'event',
       title: 'Dinner',
       dueAt: new Date(Date.now() + 3600_000).toISOString(),
       participants: [' Sara ', 'Sara'],
-      checklist: [{ text: 'Book table', done: false }, { text: '', done: true }],
+      checklist: [
+        { text: 'Book table', done: false },
+        { text: '', done: true },
+      ],
     });
     const params = query.mock.calls[0][1];
     expect(JSON.parse(params[11])).toEqual(['Sara']);
@@ -31,7 +36,9 @@ describe('PlannerService', () => {
   });
 
   it('rejects an event without a date', async () => {
-    await expect(service.create('user-1', { kind: 'event', title: 'No date' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create('user-1', { kind: 'event', title: 'No date' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(query).not.toHaveBeenCalled();
   });
 });

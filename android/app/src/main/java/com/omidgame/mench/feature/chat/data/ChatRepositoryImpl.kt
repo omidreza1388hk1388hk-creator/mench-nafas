@@ -1592,6 +1592,8 @@ class ChatRepositoryImpl @Inject constructor(
             is ServerToClientEvent.CallAnswer,
             is ServerToClientEvent.CallIceCandidate,
             is ServerToClientEvent.CallHangup,
+            is ServerToClientEvent.CallChat,
+            is ServerToClientEvent.CallReaction,
             -> Unit
         }
     }

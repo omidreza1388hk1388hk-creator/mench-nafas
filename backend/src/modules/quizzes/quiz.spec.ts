@@ -4,7 +4,9 @@ const good = [{ q: ' Favourite colour? ', options: [' Red ', 'Blue'], correct: 1
 
 describe('quiz helpers', () => {
   it('trims and accepts valid questions', () => {
-    expect(sanitizeQuestions(good)).toEqual([{ q: 'Favourite colour?', options: ['Red', 'Blue'], correct: 1 }]);
+    expect(sanitizeQuestions(good)).toEqual([
+      { q: 'Favourite colour?', options: ['Red', 'Blue'], correct: 1 },
+    ]);
   });
 
   it('rejects bad shapes', () => {
@@ -19,7 +21,10 @@ describe('quiz helpers', () => {
   });
 
   it('validates and scores answers', () => {
-    const qs = sanitizeQuestions([good[0], { q: 'Pet?', options: ['Cat', 'Dog', 'Fish'], correct: 2 }]);
+    const qs = sanitizeQuestions([
+      good[0],
+      { q: 'Pet?', options: ['Cat', 'Dog', 'Fish'], correct: 2 },
+    ]);
     expect(sanitizeAnswers(qs, [1, 2])).toEqual([1, 2]);
     expect(() => sanitizeAnswers(qs, [1])).toThrow();
     expect(() => sanitizeAnswers(qs, [1, 3])).toThrow();

@@ -1,10 +1,22 @@
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { decideSend, toRole } from '../conversations/group-policy';
 import { MessagesRepository, MessageRow } from './messages.repository';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { AttachmentsService } from '../attachments/attachments.service';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { MessageDto, ReactionSummary } from '../realtime/realtime-events';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -87,8 +99,16 @@ export class MessagesService {
   ) {}
 
   /** Phase 2A: channel (admins-only) and slow-mode rules for groups. Direct chats have no such rules. */
-  private async assertMaySend(conversationId: string, senderId: string, clientMsgId: string): Promise<void> {
-    const context = await this.conversationsRepository.getSendContext(conversationId, senderId, clientMsgId);
+  private async assertMaySend(
+    conversationId: string,
+    senderId: string,
+    clientMsgId: string,
+  ): Promise<void> {
+    const context = await this.conversationsRepository.getSendContext(
+      conversationId,
+      senderId,
+      clientMsgId,
+    );
     if (!context || context.kind !== 'group') return;
     const decision = decideSend(
       { sendMessages: context.sendMessages, slowModeSeconds: context.slowModeSeconds },
@@ -97,9 +117,15 @@ export class MessagesService {
       Date.now(),
     );
     if (decision.ok) return;
-    if (decision.reason === 'admins_only') throw new ForbiddenException('Only admins can post in this channel');
+    if (decision.reason === 'admins_only')
+      throw new ForbiddenException('Only admins can post in this channel');
     throw new HttpException(
-      { statusCode: 429, error: 'Too Many Requests', message: `Slow mode is on — wait ${decision.retryAfterSeconds}s`, retryAfterSeconds: decision.retryAfterSeconds },
+      {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: `Slow mode is on — wait ${decision.retryAfterSeconds}s`,
+        retryAfterSeconds: decision.retryAfterSeconds,
+      },
       HttpStatus.TOO_MANY_REQUESTS,
     );
   }
@@ -127,7 +153,7 @@ export class MessagesService {
         throw new BadRequestException('Attachment does not belong to this conversation');
       }
       if (attachment.uploader_id !== senderId) {
-        throw new ForbiddenException('Cannot send a message with another user\'s attachment');
+        throw new ForbiddenException("Cannot send a message with another user's attachment");
       }
       kind = attachment.kind as 'image' | 'file' | 'audio' | 'video';
     }
@@ -141,7 +167,9 @@ export class MessagesService {
       // it is harmless, unlike quoting a message from a conversation the
       // sender was never a member of.
       if (!replyTarget || replyTarget.conversation_id !== conversationId) {
-        throw new BadRequestException('Message being replied to was not found in this conversation');
+        throw new BadRequestException(
+          'Message being replied to was not found in this conversation',
+        );
       }
     }
 
@@ -174,7 +202,9 @@ export class MessagesService {
     const sender = await this.usersService.findById(senderId);
     // Phase 8: a member who muted this conversation still gets the message
     // (live over the socket, or on next sync) — only the push is skipped.
-    const mutedIds = new Set((await this.conversationsRepository.listMutedMemberIds(conversationId)) ?? []);
+    const mutedIds = new Set(
+      (await this.conversationsRepository.listMutedMemberIds(conversationId)) ?? [],
+    );
     if (input.silent === true) return dto; // Phase 2A: "send without sound" — no push at all
     void this.notificationsService.notifyNewMessage({
       recipientUserIds: otherMemberIds.filter((id) => !mutedIds.has(id)),
@@ -192,9 +222,15 @@ export class MessagesService {
   async seenBy(conversationId: string, requesterId: string, messageId: string) {
     await this.conversationsService.assertMember(conversationId, requesterId);
     const message = await this.messagesRepository.findById(messageId);
-    if (!message || message.conversation_id !== conversationId) throw new NotFoundException('Message not found');
-    if (message.sender_id !== requesterId) throw new ForbiddenException('Only the sender can see who read a message');
-    const rows = await this.messagesRepository.listSeenBy(conversationId, Number(message.sequence), requesterId);
+    if (!message || message.conversation_id !== conversationId)
+      throw new NotFoundException('Message not found');
+    if (message.sender_id !== requesterId)
+      throw new ForbiddenException('Only the sender can see who read a message');
+    const rows = await this.messagesRepository.listSeenBy(
+      conversationId,
+      Number(message.sequence),
+      requesterId,
+    );
     return rows.map((r) => ({
       userId: r.user_id,
       displayName: r.display_name,
@@ -207,7 +243,8 @@ export class MessagesService {
   async editHistory(conversationId: string, requesterId: string, messageId: string) {
     await this.conversationsService.assertMember(conversationId, requesterId);
     const message = await this.messagesRepository.findById(messageId);
-    if (!message || message.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    if (!message || message.conversation_id !== conversationId)
+      throw new NotFoundException('Message not found');
     if (message.deleted_at) return [];
     const rows = await this.messagesRepository.listEdits(messageId);
     return rows.map((r) => ({ body: r.old_body ?? '', replacedAt: r.edited_at.toISOString() }));
@@ -227,7 +264,12 @@ export class MessagesService {
    * supported (there's no caption field on those messages yet in this
    * schema), so this simply rejects rather than silently no-op'ing.
    */
-  async edit(conversationId: string, messageId: string, requestingUserId: string, body: string): Promise<MessageDto> {
+  async edit(
+    conversationId: string,
+    messageId: string,
+    requestingUserId: string,
+    body: string,
+  ): Promise<MessageDto> {
     await this.conversationsService.assertMember(conversationId, requestingUserId);
 
     const existing = await this.messagesRepository.findById(messageId);
@@ -235,7 +277,7 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
     if (existing.sender_id !== requestingUserId) {
-      throw new ForbiddenException('Cannot edit another user\'s message');
+      throw new ForbiddenException("Cannot edit another user's message");
     }
     if (existing.kind !== 'text') {
       throw new BadRequestException('Only text messages can be edited');
@@ -253,7 +295,10 @@ export class MessagesService {
     const reactions = await this.messagesRepository.listReactionsForMessage(messageId);
     const dto = toDto(updated, reactions);
 
-    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(conversationId, requestingUserId);
+    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
+      conversationId,
+      requestingUserId,
+    );
     this.broadcaster.broadcastToUsers(otherMemberIds, { type: 'message.updated', message: dto });
 
     return dto;
@@ -267,7 +312,7 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
     if (existing.sender_id !== requestingUserId) {
-      throw new ForbiddenException('Cannot delete another user\'s message');
+      throw new ForbiddenException("Cannot delete another user's message");
     }
 
     const updated = await this.messagesRepository.softDelete(messageId, requestingUserId);
@@ -275,7 +320,10 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
 
-    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(conversationId, requestingUserId);
+    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
+      conversationId,
+      requestingUserId,
+    );
     this.broadcaster.broadcastToUsers(otherMemberIds, {
       type: 'message.deleted',
       conversationId,
@@ -284,7 +332,12 @@ export class MessagesService {
     });
   }
 
-  async react(conversationId: string, messageId: string, requestingUserId: string, emoji: string): Promise<ReactionSummary[]> {
+  async react(
+    conversationId: string,
+    messageId: string,
+    requestingUserId: string,
+    emoji: string,
+  ): Promise<ReactionSummary[]> {
     await this.conversationsService.assertMember(conversationId, requestingUserId);
 
     const existing = await this.messagesRepository.findById(messageId);
@@ -296,7 +349,11 @@ export class MessagesService {
     return this.broadcastReactions(conversationId, messageId, requestingUserId);
   }
 
-  async unreact(conversationId: string, messageId: string, requestingUserId: string): Promise<ReactionSummary[]> {
+  async unreact(
+    conversationId: string,
+    messageId: string,
+    requestingUserId: string,
+  ): Promise<ReactionSummary[]> {
     await this.conversationsService.assertMember(conversationId, requestingUserId);
     await this.messagesRepository.clearReaction(messageId, requestingUserId);
     return this.broadcastReactions(conversationId, messageId, requestingUserId);
@@ -308,7 +365,10 @@ export class MessagesService {
     requestingUserId: string,
   ): Promise<ReactionSummary[]> {
     const reactions = await this.messagesRepository.listReactionsForMessage(messageId);
-    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(conversationId, requestingUserId);
+    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
+      conversationId,
+      requestingUserId,
+    );
     this.broadcaster.broadcastToUsers(otherMemberIds, {
       type: 'reaction.updated',
       conversationId,
@@ -343,7 +403,7 @@ export class MessagesService {
     await this.conversationsService.assertMember(targetConversationId, requestingUserId);
 
     if (source.kind !== 'text') {
-      throw new BadRequestException('Forwarding media messages isn\'t supported yet');
+      throw new BadRequestException("Forwarding media messages isn't supported yet");
     }
 
     return this.send({
@@ -361,9 +421,16 @@ export class MessagesService {
    * the sender's ticks turn into a grey double tick. Not persisted: like
    * message.read, it only matters while the sender is looking.
    */
-  async markDelivered(conversationId: string, userId: string, lastDeliveredSequence: number): Promise<void> {
+  async markDelivered(
+    conversationId: string,
+    userId: string,
+    lastDeliveredSequence: number,
+  ): Promise<void> {
     await this.conversationsService.assertMember(conversationId, userId);
-    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
+    const otherMemberIds = await this.conversationsRepository.listOtherMemberIds(
+      conversationId,
+      userId,
+    );
     this.broadcaster.broadcastToUsers(otherMemberIds, {
       type: 'message.delivered',
       conversationId,

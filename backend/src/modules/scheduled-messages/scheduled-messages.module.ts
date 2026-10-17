@@ -16,8 +16,11 @@ import { ScheduledMessagesService } from './scheduled-messages.service';
     {
       provide: ScheduledMessagesService,
       inject: [ScheduledMessagesRepository, ConversationsService, MessagesService],
-      useFactory: (repo: ScheduledMessagesRepository, conversations: ConversationsService, messages: MessagesService) =>
-        new ScheduledMessagesService(repo, conversations, messages),
+      useFactory: (
+        repo: ScheduledMessagesRepository,
+        conversations: ConversationsService,
+        messages: MessagesService,
+      ) => new ScheduledMessagesService(repo, conversations, messages),
     },
   ],
 })

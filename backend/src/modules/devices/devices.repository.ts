@@ -72,7 +72,12 @@ export class DevicesRepository {
   }
 
   /** Idempotent: registering the same token again just refreshes push_token_updated_at, which is exactly what the Android client's "re-register on every cold start if the token differs" logic needs. */
-  async updatePushToken(deviceId: string, userId: string, token: string, provider: 'fcm'): Promise<void> {
+  async updatePushToken(
+    deviceId: string,
+    userId: string,
+    token: string,
+    provider: 'fcm',
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE devices
        SET push_token = $3, push_provider = $4, push_token_updated_at = now()

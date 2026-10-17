@@ -1,6 +1,7 @@
 package com.omidgame.mench.core.widgets
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,7 +101,7 @@ class CoupleCounterWidget : GlanceAppWidget() {
                     .fillMaxSize()
                     .background(ImageProvider(R.drawable.widget_background))
                     .padding(14.dp)
-                    .clickable(actionStartActivity<MainActivity>()),
+                    .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -156,7 +157,7 @@ class PartnerQuickWidget : GlanceAppWidget() {
                     text = snapshot.name.ifBlank { context.getString(R.string.app_name) },
                     style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White),
                     maxLines = 1,
-                    modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),
+                    modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
                 )
                 Spacer(GlanceModifier.height(8.dp))
                 if (snapshot.conversationId == null) {

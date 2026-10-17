@@ -38,7 +38,8 @@ export class SyncService {
 
   async put(userId: string, key: string, value: string): Promise<SyncEntry> {
     this.assertKey(key);
-    if (Buffer.byteLength(value, 'utf8') > MAX_VALUE_BYTES) throw new BadRequestException('Value too large');
+    if (Buffer.byteLength(value, 'utf8') > MAX_VALUE_BYTES)
+      throw new BadRequestException('Value too large');
     const { rows } = await this.pool.query(
       `INSERT INTO sync_state (user_id, key, value) VALUES ($1, $2, $3)
        ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()

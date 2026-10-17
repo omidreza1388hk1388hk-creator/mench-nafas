@@ -83,7 +83,9 @@ describe('FcmNotificationProvider', () => {
   });
 
   it('sendToDevice never throws when messaging.send rejects (e.g. an unregistered/expired token)', async () => {
-    const send = jest.fn().mockRejectedValue(new Error('messaging/registration-token-not-registered'));
+    const send = jest
+      .fn()
+      .mockRejectedValue(new Error('messaging/registration-token-not-registered'));
     (getMessaging as jest.Mock).mockReturnValue({ send });
 
     const provider = new FcmNotificationProvider(credentials);

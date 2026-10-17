@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CallsService } from './calls.service';
 import { InitiateCallDto } from './dto/initiate-call.dto';
 import { EndCallDto } from './dto/end-call.dto';
@@ -37,7 +47,11 @@ export class CallsController {
   }
 
   @Post(':callId/end')
-  async end(@Req() req: any, @Param('callId', ParseUUIDPipe) callId: string, @Body() dto: EndCallDto) {
+  async end(
+    @Req() req: any,
+    @Param('callId', ParseUUIDPipe) callId: string,
+    @Body() dto: EndCallDto,
+  ) {
     await this.callsService.end(callId, req.user.sub, dto.reason);
     return { ok: true };
   }

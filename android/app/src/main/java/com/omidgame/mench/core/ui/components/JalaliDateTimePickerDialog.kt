@@ -1,6 +1,7 @@
 package com.omidgame.mench.core.ui.components
 
-import android.icu.util.PersianCalendar
+import android.icu.util.Calendar as IcuCalendar
+import android.icu.util.ULocale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,21 +35,23 @@ private val JALALI_MONTHS = arrayOf(
 )
 
 /** Jalali (year, month 0..11, day) for an instant. */
+private fun persianCalendar(): IcuCalendar = IcuCalendar.getInstance(ULocale("fa_IR@calendar=persian"))
+
 private fun toJalali(millis: Long): Triple<Int, Int, Int> {
-    val c = PersianCalendar().apply { timeInMillis = millis }
-    return Triple(c.get(android.icu.util.Calendar.YEAR), c.get(android.icu.util.Calendar.MONTH), c.get(android.icu.util.Calendar.DAY_OF_MONTH))
+    val c = persianCalendar().apply { timeInMillis = millis }
+    return Triple(c.get(IcuCalendar.YEAR), c.get(IcuCalendar.MONTH), c.get(IcuCalendar.DAY_OF_MONTH))
 }
 
 /** Days in a Jalali month: 31 for the first six, 30 for the next five, 29 or 30 for Esfand (leap years). */
 private fun daysInJalaliMonth(year: Int, month: Int): Int {
-    val c = PersianCalendar()
+    val c = persianCalendar()
     c.clear()
     c.set(year, month, 1)
-    return c.getActualMaximum(android.icu.util.Calendar.DAY_OF_MONTH)
+    return c.getActualMaximum(IcuCalendar.DAY_OF_MONTH)
 }
 
 private fun jalaliToMillis(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
-    val c = PersianCalendar()
+    val c = persianCalendar()
     c.clear()
     c.set(year, month, day, hour, minute, 0)
     return c.timeInMillis

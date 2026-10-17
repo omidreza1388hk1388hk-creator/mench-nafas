@@ -136,6 +136,18 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        // Compose marks parts of Material3 / Foundation / shared-element
+        // transitions as experimental. Opting in once at the compiler level is
+        // cleaner than scattering @OptIn across ~40 files, and these APIs are
+        // stable in practice on the pinned BOM (2024.09.03).
+        freeCompilerArgs += listOf(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+            "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
+            "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
+            "-opt-in=androidx.compose.animation.ExperimentalSharedTransitionApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        )
     }
 
     packaging {

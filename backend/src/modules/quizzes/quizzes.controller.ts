@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
 import { AnswerQuizDto, CreateQuizDto } from './dto/quiz.dto';
@@ -16,7 +27,11 @@ export class QuizzesController {
 
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  create(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateQuizDto) {
+  create(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: CreateQuizDto,
+  ) {
     return this.quizzesService.create(conversationId, req.user.sub, dto);
   }
 

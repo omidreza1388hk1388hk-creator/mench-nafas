@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { VaultRepository, VaultRow } from './vault.repository';
 
 export const MAX_VAULT_ITEMS = 100;
@@ -49,8 +58,10 @@ export class VaultService {
   async remove(conversationId: string, itemId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const item = await this.vaultRepository.findById(itemId);
-    if (!item || item.conversation_id !== conversationId) throw new NotFoundException('Note not found');
-    if (item.author_id !== userId) throw new ForbiddenException('Only the author can delete a note');
+    if (!item || item.conversation_id !== conversationId)
+      throw new NotFoundException('Note not found');
+    if (item.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a note');
     await this.vaultRepository.delete(itemId);
     await this.notifyChanged(conversationId, userId);
   }

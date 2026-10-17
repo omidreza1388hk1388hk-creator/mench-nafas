@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { CounterRow, CountersRepository } from './counters.repository';
 
 export const MAX_COUNTERS_PER_CONVERSATION = 20;
@@ -47,14 +56,22 @@ export class CountersService {
   async create(
     conversationId: string,
     userId: string,
-    dto: { title: string; emoji?: string; kind: 'date' | 'tally'; anchorDate?: string; theme?: number },
+    dto: {
+      title: string;
+      emoji?: string;
+      kind: 'date' | 'tally';
+      anchorDate?: string;
+      theme?: number;
+    },
   ): Promise<CounterDto> {
     await this.assertDirectMember(conversationId, userId);
     if (dto.kind === 'date' && (!dto.anchorDate || Number.isNaN(Date.parse(dto.anchorDate)))) {
       throw new BadRequestException('A date counter needs a valid anchorDate');
     }
     if ((await this.countersRepository.count(conversationId)) >= MAX_COUNTERS_PER_CONVERSATION) {
-      throw new BadRequestException(`At most ${MAX_COUNTERS_PER_CONVERSATION} counters per conversation`);
+      throw new BadRequestException(
+        `At most ${MAX_COUNTERS_PER_CONVERSATION} counters per conversation`,
+      );
     }
     const row = await this.countersRepository.create(conversationId, userId, {
       title: dto.title.trim(),
@@ -68,11 +85,18 @@ export class CountersService {
   }
 
   /** Either person may bump a tally. */
-  async bump(conversationId: string, counterId: string, userId: string, delta: 1 | -1): Promise<CounterDto> {
+  async bump(
+    conversationId: string,
+    counterId: string,
+    userId: string,
+    delta: 1 | -1,
+  ): Promise<CounterDto> {
     await this.assertDirectMember(conversationId, userId);
     const existing = await this.countersRepository.findById(counterId);
-    if (!existing || existing.conversation_id !== conversationId) throw new NotFoundException('Counter not found');
-    if (existing.kind !== 'tally') throw new BadRequestException('Only tally counters can be bumped');
+    if (!existing || existing.conversation_id !== conversationId)
+      throw new NotFoundException('Counter not found');
+    if (existing.kind !== 'tally')
+      throw new BadRequestException('Only tally counters can be bumped');
     const row = await this.countersRepository.bump(counterId, delta);
     if (!row) throw new NotFoundException('Counter not found');
     await this.notifyChanged(conversationId, userId);
@@ -82,15 +106,20 @@ export class CountersService {
   async remove(conversationId: string, counterId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const existing = await this.countersRepository.findById(counterId);
-    if (!existing || existing.conversation_id !== conversationId) throw new NotFoundException('Counter not found');
-    if (existing.author_id !== userId) throw new ForbiddenException('Only the author can delete a counter');
+    if (!existing || existing.conversation_id !== conversationId)
+      throw new NotFoundException('Counter not found');
+    if (existing.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a counter');
     await this.countersRepository.delete(counterId);
     await this.notifyChanged(conversationId, userId);
   }
 
   private async notifyChanged(conversationId: string, userId: string): Promise<void> {
     const otherIds = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(otherIds, { type: 'counter.changed', conversationId });
+    this.realtimeBroadcaster.broadcastToUsers(otherIds, {
+      type: 'counter.changed',
+      conversationId,
+    });
   }
 
   private async assertDirectMember(conversationId: string, userId: string): Promise<void> {

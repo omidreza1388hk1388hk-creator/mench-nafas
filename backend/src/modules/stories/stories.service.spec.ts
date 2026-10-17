@@ -7,8 +7,17 @@ const future = new Date(Date.now() + 3_600_000);
 
 function row(over: Record<string, unknown> = {}) {
   return {
-    id: 's-1', conversation_id: 'conv-1', author_id: userA, body: 'hello', emoji: '💗', palette: 2,
-    created_at: new Date(), expires_at: future, seen_by_viewer: false, views: 3, ...over,
+    id: 's-1',
+    conversation_id: 'conv-1',
+    author_id: userA,
+    body: 'hello',
+    emoji: '💗',
+    palette: 2,
+    created_at: new Date(),
+    expires_at: future,
+    seen_by_viewer: false,
+    views: 3,
+    ...over,
   };
 }
 
@@ -20,12 +29,24 @@ describe('StoriesService', () => {
 
   beforeEach(() => {
     stories = {
-      listActive: jest.fn().mockResolvedValue([]), countActiveByAuthor: jest.fn().mockResolvedValue(0),
-      create: jest.fn(), findById: jest.fn(), markViewed: jest.fn(), delete: jest.fn(),
+      listActive: jest.fn().mockResolvedValue([]),
+      countActiveByAuthor: jest.fn().mockResolvedValue(0),
+      create: jest.fn(),
+      findById: jest.fn(),
+      markViewed: jest.fn(),
+      delete: jest.fn(),
     };
-    conversations = { isMember: jest.fn().mockResolvedValue(true), listOtherMemberIds: jest.fn().mockResolvedValue([userB]) };
+    conversations = {
+      isMember: jest.fn().mockResolvedValue(true),
+      listOtherMemberIds: jest.fn().mockResolvedValue([userB]),
+    };
     broadcaster = { broadcastToUsers: jest.fn() };
-    service = new StoriesService(stories as any, conversations as any, broadcaster as any, { isImageAttachmentOfConversation: jest.fn().mockResolvedValue(true) } as any);
+    service = new StoriesService(
+      stories as any,
+      conversations as any,
+      broadcaster as any,
+      { isImageAttachmentOfConversation: jest.fn().mockResolvedValue(true) } as any,
+    );
   });
 
   it('lists stories with viewer-specific flags (own stories are always seen and show their view count)', async () => {
@@ -36,7 +57,9 @@ describe('StoriesService', () => {
   });
 
   it('reports conversations with unseen stories for the chat-list rings', async () => {
-    stories.unseenByConversation = jest.fn().mockResolvedValue([{ conversation_id: 'conv-1', n: 2 }]);
+    stories.unseenByConversation = jest
+      .fn()
+      .mockResolvedValue([{ conversation_id: 'conv-1', n: 2 }]);
     await expect(service.unseen(userA)).resolves.toEqual([{ conversationId: 'conv-1', count: 2 }]);
   });
 
@@ -44,20 +67,30 @@ describe('StoriesService', () => {
     stories.create.mockResolvedValue(row());
     await service.create('conv-1', userA, { body: '  hello  ', emoji: ' 💗 ', palette: 2 });
     expect(stories.create).toHaveBeenCalledWith('conv-1', userA, 'hello', '💗', 2, null);
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], { type: 'story.changed', conversationId: 'conv-1' });
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], {
+      type: 'story.changed',
+      conversationId: 'conv-1',
+    });
   });
 
   it('rejects blank text and enforces the active-story cap', async () => {
-    await expect(service.create('conv-1', userA, { body: '   ', palette: 0 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create('conv-1', userA, { body: '   ', palette: 0 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     stories.countActiveByAuthor.mockResolvedValue(MAX_ACTIVE_STORIES_PER_AUTHOR);
-    await expect(service.create('conv-1', userA, { body: 'x', palette: 0 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create('conv-1', userA, { body: 'x', palette: 0 })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('records a view from the partner and notifies the author, but ignores own and expired stories', async () => {
     stories.findById.mockResolvedValue(row());
     await service.markViewed('conv-1', 's-1', userB);
     expect(stories.markViewed).toHaveBeenCalledWith('s-1', userB);
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA], { type: 'story.changed', conversationId: 'conv-1' });
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userA], {
+      type: 'story.changed',
+      conversationId: 'conv-1',
+    });
 
     stories.markViewed.mockClear();
     await service.markViewed('conv-1', 's-1', userA);

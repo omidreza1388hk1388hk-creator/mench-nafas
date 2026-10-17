@@ -10,7 +10,10 @@ import { ArrayMaxSize, ArrayNotEmpty, IsPhoneNumber, IsString } from 'class-vali
 export class LookupUsersBatchDto {
   @ArrayNotEmpty()
   @ArrayMaxSize(500)
-  @IsPhoneNumber(undefined, { each: true, message: 'each phone must be a valid E.164 phone number' })
+  @IsPhoneNumber(undefined, {
+    each: true,
+    message: 'each phone must be a valid E.164 phone number',
+  })
   @IsString({ each: true })
   phones!: string[];
 }

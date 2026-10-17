@@ -23,7 +23,10 @@ export class TwoStepRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async get(userId: string): Promise<TwoStepRow | null> {
-    const { rows } = await this.pool.query<TwoStepRow>('SELECT * FROM two_step WHERE user_id = $1', [userId]);
+    const { rows } = await this.pool.query<TwoStepRow>(
+      'SELECT * FROM two_step WHERE user_id = $1',
+      [userId],
+    );
     return rows[0] ?? null;
   }
 
@@ -43,7 +46,10 @@ export class TwoStepRepository {
   }
 
   /** Atomically bumps the counter and returns the new value. */
-  async recordFailure(userId: string, lockedUntil: (attempts: number) => Date | null): Promise<void> {
+  async recordFailure(
+    userId: string,
+    lockedUntil: (attempts: number) => Date | null,
+  ): Promise<void> {
     const { rows } = await this.pool.query<{ failed_attempts: number }>(
       'UPDATE two_step SET failed_attempts = failed_attempts + 1 WHERE user_id = $1 RETURNING failed_attempts',
       [userId],
@@ -51,12 +57,18 @@ export class TwoStepRepository {
     const attempts = rows[0]?.failed_attempts ?? 0;
     const until = lockedUntil(attempts);
     if (until) {
-      await this.pool.query('UPDATE two_step SET locked_until = $2 WHERE user_id = $1', [userId, until]);
+      await this.pool.query('UPDATE two_step SET locked_until = $2 WHERE user_id = $1', [
+        userId,
+        until,
+      ]);
     }
   }
 
   async recordSuccess(userId: string): Promise<void> {
-    await this.pool.query('UPDATE two_step SET failed_attempts = 0, locked_until = NULL WHERE user_id = $1', [userId]);
+    await this.pool.query(
+      'UPDATE two_step SET failed_attempts = 0, locked_until = NULL WHERE user_id = $1',
+      [userId],
+    );
   }
 
   async createTicket(userId: string, deviceName: string, expiresAt: Date): Promise<string> {
@@ -70,12 +82,17 @@ export class TwoStepRepository {
   }
 
   async getTicket(id: string): Promise<TicketRow | null> {
-    const { rows } = await this.pool.query<TicketRow>('SELECT * FROM two_step_tickets WHERE id = $1', [id]);
+    const { rows } = await this.pool.query<TicketRow>(
+      'SELECT * FROM two_step_tickets WHERE id = $1',
+      [id],
+    );
     return rows[0] ?? null;
   }
 
   async bumpTicket(id: string): Promise<void> {
-    await this.pool.query('UPDATE two_step_tickets SET attempts = attempts + 1 WHERE id = $1', [id]);
+    await this.pool.query('UPDATE two_step_tickets SET attempts = attempts + 1 WHERE id = $1', [
+      id,
+    ]);
   }
 
   async deleteTicket(id: string): Promise<void> {

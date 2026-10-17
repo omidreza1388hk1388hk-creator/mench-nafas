@@ -10,7 +10,10 @@ import { ConversationsRepository } from '../conversations/conversations.reposito
 import { UsersService } from '../users/users.service';
 import { IceServersService } from './ice-servers.service';
 import { PrivacyService } from '../privacy/privacy.service';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import {
   CallHistorySummaryDto,
   CallSessionDto,
@@ -37,7 +40,11 @@ export class CallsService {
    * be confusing and would look like a bug rather than a documented
    * limitation.
    */
-  async initiate(callerId: string, conversationId: string, callType: 'voice' | 'video'): Promise<CallSessionDto> {
+  async initiate(
+    callerId: string,
+    conversationId: string,
+    callType: 'voice' | 'video',
+  ): Promise<CallSessionDto> {
     const isMember = await this.conversationsRepository.isMember(conversationId, callerId);
     if (!isMember) {
       throw new NotFoundException('Conversation not found');
@@ -143,7 +150,11 @@ export class CallsService {
     return toCallSessionDto(call, this.iceServersService.build());
   }
 
-  async listHistory(userId: string, before: string | undefined, limit: number): Promise<CallHistorySummaryDto[]> {
+  async listHistory(
+    userId: string,
+    before: string | undefined,
+    limit: number,
+  ): Promise<CallHistorySummaryDto[]> {
     const beforeDate = before ? new Date(before) : null;
     const rows = await this.callsRepository.listHistoryForUser(userId, beforeDate, limit);
     return rows.map((row) => toCallHistorySummaryDto(row, userId));

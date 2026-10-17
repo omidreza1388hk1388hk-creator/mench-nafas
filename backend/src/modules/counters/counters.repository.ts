@@ -38,18 +38,35 @@ export class CountersRepository {
   async create(
     conversationId: string,
     authorId: string,
-    input: { title: string; emoji: string; kind: 'date' | 'tally'; anchorDate: string | null; theme: number },
+    input: {
+      title: string;
+      emoji: string;
+      kind: 'date' | 'tally';
+      anchorDate: string | null;
+      theme: number;
+    },
   ): Promise<CounterRow> {
     const { rows } = await this.pool.query<CounterRow>(
       `INSERT INTO couple_counters (conversation_id, author_id, title, emoji, kind, anchor_date, theme)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [conversationId, authorId, input.title, input.emoji, input.kind, input.anchorDate, input.theme],
+      [
+        conversationId,
+        authorId,
+        input.title,
+        input.emoji,
+        input.kind,
+        input.anchorDate,
+        input.theme,
+      ],
     );
     return rows[0];
   }
 
   async findById(counterId: string): Promise<CounterRow | null> {
-    const { rows } = await this.pool.query<CounterRow>('SELECT * FROM couple_counters WHERE id = $1', [counterId]);
+    const { rows } = await this.pool.query<CounterRow>(
+      'SELECT * FROM couple_counters WHERE id = $1',
+      [counterId],
+    );
     return rows[0] ?? null;
   }
 

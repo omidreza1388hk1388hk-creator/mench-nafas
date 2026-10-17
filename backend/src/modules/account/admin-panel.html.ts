@@ -111,7 +111,7 @@ var tabs={
    out.appendChild(el('div',{class:'mut'},['days / how many codes / uses per code']));out.appendChild(el('div',{class:'row'},[cd,cn,cu,cb]));out.appendChild(co);
    return api('sticker-packs');}).then(function(p){out.appendChild(el('h2',0,['Sticker packs']));out.appendChild(table(p.map(function(x){return {name:x.name,premium:x.premium,active:x.active,glyphs:(x.glyphs||[]).join(' ')};}),['name','premium','active','glyphs']));
    var nm=el('input',{placeholder:'pack name'});var gl=el('input',{placeholder:'glyphs separated by spaces'});var pr=el('select');['false','true'].forEach(function(x){pr.appendChild(el('option',{value:x},['premium='+x]));});pr.firstChild.value='false';
-   var ad=el('button',0,['Add pack']);ad.onclick=function(){api('sticker-packs','POST',{name:nm.value,premium:pr.value==='true',active:true,sort:0,glyphs:gl.value.split(/\s+/).filter(Boolean)}).then(tabs.Growth);};
+   var ad=el('button',0,['Add pack']);ad.onclick=function(){api('sticker-packs','POST',{name:nm.value,premium:pr.value==='true',active:true,sort:0,glyphs:gl.value.split(/\\s+/).filter(Boolean)}).then(tabs.Growth);};
    out.appendChild(el('div',{class:'row'},[nm,gl,pr,ad]));});
   view.appendChild(el('div',{class:'card'},[out]));},
  Analytics:function(){view.textContent='';api('analytics').then(function(rows){view.appendChild(el('div',{class:'card'},[el('div',{class:'mut'},['Counters only. No user ids, no content.']),table(rows,['day','name','count'])]));});}

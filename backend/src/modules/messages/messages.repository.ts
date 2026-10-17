@@ -109,10 +109,10 @@ export class MessagesRepository {
       );
       const inserted = rows[0];
 
-      await client.query(
-        `UPDATE conversations SET last_message_at = $2 WHERE id = $1`,
-        [input.conversationId, inserted.created_at],
-      );
+      await client.query(`UPDATE conversations SET last_message_at = $2 WHERE id = $1`, [
+        input.conversationId,
+        inserted.created_at,
+      ]);
 
       // Re-fetched (rather than built from the INSERT...RETURNING result
       // directly) so the response includes the joined attachment summary
@@ -157,7 +157,11 @@ export class MessagesRepository {
   }
 
   /** Members whose read marker has reached `sequence`, i.e. who have seen that message (the sender is excluded). */
-  async listSeenBy(conversationId: string, sequence: number, excludeUserId: string): Promise<SeenByRow[]> {
+  async listSeenBy(
+    conversationId: string,
+    sequence: number,
+    excludeUserId: string,
+  ): Promise<SeenByRow[]> {
     const { rows } = await this.pool.query<SeenByRow>(
       `SELECT u.id AS user_id, u.display_name, u.phone_e164, rr.updated_at AS read_at
          FROM read_receipts rr
@@ -245,10 +249,10 @@ export class MessagesRepository {
   }
 
   async clearReaction(messageId: string, userId: string): Promise<void> {
-    await this.pool.query(
-      `DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2`,
-      [messageId, userId],
-    );
+    await this.pool.query(`DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2`, [
+      messageId,
+      userId,
+    ]);
   }
 
   async listReactionsForMessage(messageId: string): Promise<ReactionSummary[]> {
@@ -272,7 +276,11 @@ export class MessagesRepository {
     const map = new Map<string, ReactionSummary[]>();
     if (messageIds.length === 0) return map;
 
-    const { rows } = await this.pool.query<{ message_id: string; emoji: string; user_ids: string[] }>(
+    const { rows } = await this.pool.query<{
+      message_id: string;
+      emoji: string;
+      user_ids: string[];
+    }>(
       `SELECT message_id, emoji, array_agg(user_id ORDER BY created_at) AS user_ids
        FROM message_reactions WHERE message_id = ANY($1::uuid[])
        GROUP BY message_id, emoji`,

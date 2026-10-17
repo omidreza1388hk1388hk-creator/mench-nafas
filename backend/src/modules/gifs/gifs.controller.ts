@@ -26,8 +26,13 @@ export class GifsController {
   /** GET /gifs/:id/media?size=preview|full — the GIF bytes, proxied (see GifsService). */
   @Get(':id/media')
   @Throttle({ default: { limit: 300, ttl: 60_000 } })
-  async media(@Param('id') id: string, @Query('size') size: string | undefined, @Res() res: Response): Promise<void> {
-    if (size !== undefined && size !== 'preview' && size !== 'full') throw new BadRequestException('size must be preview or full');
+  async media(
+    @Param('id') id: string,
+    @Query('size') size: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (size !== undefined && size !== 'preview' && size !== 'full')
+      throw new BadRequestException('size must be preview or full');
     const media = await this.gifsService.getMedia(id, size ?? 'full');
     res.set({
       'Content-Type': media.contentType,
@@ -41,6 +46,7 @@ export class GifsController {
 function parseOffset(raw: string | undefined): number {
   if (raw === undefined || raw === '') return 0;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 0) throw new BadRequestException('offset must be a non-negative integer');
+  if (!Number.isInteger(n) || n < 0)
+    throw new BadRequestException('offset must be a non-negative integer');
   return n;
 }

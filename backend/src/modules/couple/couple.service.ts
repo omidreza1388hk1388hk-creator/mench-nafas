@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { CoupleRepository, WishRow } from './couple.repository';
 import { iranDateString, todaysQuestion } from './questions';
 import { computeStreak } from './streak';
@@ -40,7 +49,10 @@ export class CoupleService {
     const answers = await this.coupleRepository.listAnswers(conversationId, date);
     const mine = answers.find((a) => a.user_id === userId)?.answer ?? null;
     const partner = answers.find((a) => a.user_id !== userId)?.answer ?? null;
-    const streak = computeStreak(await this.coupleRepository.listBothAnsweredDates(conversationId), date);
+    const streak = computeStreak(
+      await this.coupleRepository.listBothAnsweredDates(conversationId),
+      date,
+    );
     return {
       streak: streak.current,
       bestStreak: streak.best,
@@ -54,16 +66,26 @@ export class CoupleService {
 
   async answerQuestion(conversationId: string, userId: string, answer: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
-    await this.coupleRepository.upsertAnswer(conversationId, iranDateString(), userId, answer.trim());
+    await this.coupleRepository.upsertAnswer(
+      conversationId,
+      iranDateString(),
+      userId,
+      answer.trim(),
+    );
     const others = await this.conversationsRepository.listOtherMemberIds(conversationId, userId);
-    this.realtimeBroadcaster.broadcastToUsers(others, { type: 'question.answered', conversationId });
+    this.realtimeBroadcaster.broadcastToUsers(others, {
+      type: 'question.answered',
+      conversationId,
+    });
   }
 
   // ---- wishlist -----------------------------------------------------------
 
   async listWishes(conversationId: string, userId: string): Promise<WishDto[]> {
     await this.assertDirectMember(conversationId, userId);
-    return (await this.coupleRepository.listWishes(conversationId)).map((r) => toWishDto(r, userId));
+    return (await this.coupleRepository.listWishes(conversationId)).map((r) =>
+      toWishDto(r, userId),
+    );
   }
 
   async createWish(conversationId: string, userId: string, title: string): Promise<WishDto> {
@@ -73,7 +95,12 @@ export class CoupleService {
     return toWishDto(row, userId);
   }
 
-  async updateWish(conversationId: string, wishId: string, userId: string, done: boolean): Promise<WishDto> {
+  async updateWish(
+    conversationId: string,
+    wishId: string,
+    userId: string,
+    done: boolean,
+  ): Promise<WishDto> {
     await this.assertDirectMember(conversationId, userId);
     const wish = await this.requireWish(conversationId, wishId);
     const row = await this.coupleRepository.setWishDone(wish.id, done);
@@ -84,14 +111,16 @@ export class CoupleService {
   async deleteWish(conversationId: string, wishId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const wish = await this.requireWish(conversationId, wishId);
-    if (wish.author_id !== userId) throw new ForbiddenException('Only the author can delete a wish');
+    if (wish.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a wish');
     await this.coupleRepository.deleteWish(wish.id);
     await this.notifyWishlistChanged(conversationId, userId);
   }
 
   private async requireWish(conversationId: string, wishId: string): Promise<WishRow> {
     const wish = await this.coupleRepository.findWish(wishId);
-    if (!wish || wish.conversation_id !== conversationId) throw new NotFoundException('Wish not found');
+    if (!wish || wish.conversation_id !== conversationId)
+      throw new NotFoundException('Wish not found');
     return wish;
   }
 

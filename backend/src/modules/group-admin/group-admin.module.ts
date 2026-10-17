@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { ConversationsService } from '../conversations/conversations.service';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { GroupAdminController } from './group-admin.controller';
@@ -16,9 +19,18 @@ import { GroupAdminService } from './group-admin.service';
     GroupAdminRepository,
     {
       provide: GroupAdminService,
-      inject: [GroupAdminRepository, ConversationsRepository, ConversationsService, REALTIME_BROADCASTER],
-      useFactory: (repo: GroupAdminRepository, convRepo: ConversationsRepository, convService: ConversationsService, broadcaster: RealtimeBroadcaster) =>
-        new GroupAdminService(repo, convRepo, convService, broadcaster),
+      inject: [
+        GroupAdminRepository,
+        ConversationsRepository,
+        ConversationsService,
+        REALTIME_BROADCASTER,
+      ],
+      useFactory: (
+        repo: GroupAdminRepository,
+        convRepo: ConversationsRepository,
+        convService: ConversationsService,
+        broadcaster: RealtimeBroadcaster,
+      ) => new GroupAdminService(repo, convRepo, convService, broadcaster),
     },
   ],
 })

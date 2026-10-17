@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
 import { CreatePollDto } from './dto/create-poll.dto';
@@ -12,7 +22,11 @@ export class PollsController {
 
   @Post('conversations/:conversationId/polls')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  create(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreatePollDto) {
+  create(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: CreatePollDto,
+  ) {
     return this.pollsService.create({
       conversationId,
       creatorId: req.user.sub,

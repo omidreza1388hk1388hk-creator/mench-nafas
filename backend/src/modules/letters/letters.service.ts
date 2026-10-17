@@ -1,7 +1,16 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { UsersService } from '../users/users.service';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MemoriesRepository } from '../memories/memories.repository';
 import { LetterRow, LettersRepository } from './letters.repository';
@@ -58,7 +67,13 @@ export class LettersService {
     dto: { title: string; body: string; unlockAt?: string; attachmentId?: string },
   ): Promise<LetterDto> {
     await this.assertDirectMember(conversationId, userId);
-    if (dto.attachmentId && !(await this.memoriesRepository.isImageAttachmentOfConversation(dto.attachmentId, conversationId))) {
+    if (
+      dto.attachmentId &&
+      !(await this.memoriesRepository.isImageAttachmentOfConversation(
+        dto.attachmentId,
+        conversationId,
+      ))
+    ) {
       throw new BadRequestException('attachmentId must be an image uploaded to this conversation');
     }
     const row = await this.lettersRepository.create(

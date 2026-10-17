@@ -1,9 +1,11 @@
 package com.omidgame.mench.feature.people.data
 
 import android.content.Context
+import com.omidgame.mench.core.network.BlockBody
+import com.omidgame.mench.core.network.BlockedUserResponse
 import com.omidgame.mench.core.network.DeleteAccountBody
+import com.omidgame.mench.core.network.ProductApi
 import com.omidgame.mench.core.network.PublicUserResponse
-import com.omidgame.mench.core.network.UsersApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,31 +47,31 @@ fun inviteLink(code: String): String = "mench://invite/$code"
 /** Finding people, blocking, and account lifecycle calls. A concrete @Singleton, so Hilt needs no binding module. */
 @Singleton
 class PeopleRepository @Inject constructor(
-    private val usersApi: UsersApi,
+    private val api: ProductApi,
     @ApplicationContext private val context: Context,
 ) {
     suspend fun findByUsername(raw: String): PeopleResult<PublicUser> {
         val username = raw.trim().removePrefix("@")
         if (username.isEmpty()) return PeopleResult.NotFound
-        return call { usersApi.getByUsername(username).toPublic() }
+        return call { api.byUsername(username).toPublic() }
     }
 
     suspend fun resolveInvite(raw: String): PeopleResult<PublicUser> {
         val code = extractInviteCode(raw) ?: return PeopleResult.NotFound
-        return call { usersApi.resolveInvite(code).toPublic() }
+        return call { api.resolveInvite(code).toPublic() }
     }
 
-    suspend fun myInviteCode(): PeopleResult<String> = call { usersApi.getMyInvite().code }
+    suspend fun myInviteCode(): PeopleResult<String> = call { api.myInvite().code }
 
-    suspend fun blocked(): PeopleResult<List<PublicUser>> = call { usersApi.listBlocks().map { it.toPublic() } }
+    suspend fun blocked(): PeopleResult<List<PublicUser>> = call { api.blocked().map { it.toPublic() } }
 
-    suspend fun block(userId: String): PeopleResult<Unit> = call { usersApi.blockUser(userId) }
+    suspend fun block(userId: String): PeopleResult<Unit> = call { api.block(BlockBody(userId)) }
 
-    suspend fun unblock(userId: String): PeopleResult<Unit> = call { usersApi.unblockUser(userId) }
+    suspend fun unblock(userId: String): PeopleResult<Unit> = call { api.unblock(userId) }
 
     /** Streams the JSON export into the cache dir (covered by FileProvider's "exports/" path) and returns the file. */
     suspend fun exportMyData(): PeopleResult<File> = call {
-        val body = usersApi.exportMyData()
+        val body = api.exportData()
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, "mench-my-data.json")
         body.use { response ->
@@ -80,7 +82,7 @@ class PeopleRepository @Inject constructor(
         file
     }
 
-    suspend fun deleteAccount(): PeopleResult<Unit> = call { usersApi.deleteMe(DeleteAccountBody("DELETE")) }
+    suspend fun deleteAccount(): PeopleResult<Unit> = call { api.deleteAccount(DeleteAccountBody("DELETE")) }
 
     private suspend fun <T> call(block: suspend () -> T): PeopleResult<T> = withContext(Dispatchers.IO) {
         try {
@@ -91,6 +93,14 @@ class PeopleRepository @Inject constructor(
             if (e.code() == 404 || e.code() == 400) PeopleResult.NotFound else PeopleResult.Failed
         }
     }
+
+    private fun BlockedUserResponse.toPublic() = PublicUser(
+        id = id,
+        displayName = displayName,
+        username = username,
+        bio = bio,
+        avatarVersion = avatarVersion,
+    )
 
     private fun PublicUserResponse.toPublic() = PublicUser(
         id = id,

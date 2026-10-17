@@ -107,7 +107,10 @@ export class ConversationsRepository {
         `INSERT INTO conversations (kind, created_by) VALUES ('saved', $1) RETURNING *`,
         [userId],
       );
-      await client.query(`INSERT INTO conversation_members (conversation_id, user_id) VALUES ($1, $2)`, [rows[0].id, userId]);
+      await client.query(
+        `INSERT INTO conversation_members (conversation_id, user_id) VALUES ($1, $2)`,
+        [rows[0].id, userId],
+      );
       await client.query('COMMIT');
       return rows[0];
     } catch (err) {
@@ -130,12 +133,23 @@ export class ConversationsRepository {
               is_pinned = COALESCE($4, is_pinned),
               is_archived = COALESCE($5, is_archived)
         WHERE conversation_id = $1 AND user_id = $2`,
-      [conversationId, userId, settings.isMuted ?? null, settings.isPinned ?? null, settings.isArchived ?? null],
+      [
+        conversationId,
+        userId,
+        settings.isMuted ?? null,
+        settings.isPinned ?? null,
+        settings.isArchived ?? null,
+      ],
     );
   }
 
   /** Phase 9: set this member's mood (stamped now). */
-  async setMood(conversationId: string, userId: string, emoji: string, text: string | null): Promise<void> {
+  async setMood(
+    conversationId: string,
+    userId: string,
+    emoji: string,
+    text: string | null,
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE conversation_members
           SET mood_emoji = $3, mood_text = $4, mood_set_at = now()
@@ -144,9 +158,14 @@ export class ConversationsRepository {
     );
   }
 
-  async listMoods(
-    conversationId: string,
-  ): Promise<{ user_id: string; mood_emoji: string | null; mood_text: string | null; mood_set_at: Date | null }[]> {
+  async listMoods(conversationId: string): Promise<
+    {
+      user_id: string;
+      mood_emoji: string | null;
+      mood_text: string | null;
+      mood_set_at: Date | null;
+    }[]
+  > {
     const { rows } = await this.pool.query(
       `SELECT user_id, mood_emoji, mood_text, mood_set_at FROM conversation_members WHERE conversation_id = $1`,
       [conversationId],
@@ -156,14 +175,17 @@ export class ConversationsRepository {
 
   /** Phase 11: pin (or clear, with null) one message for everyone in the conversation. */
   async setPinnedMessage(conversationId: string, messageId: string | null): Promise<void> {
-    await this.pool.query('UPDATE conversations SET pinned_message_id = $2 WHERE id = $1', [conversationId, messageId]);
+    await this.pool.query('UPDATE conversations SET pinned_message_id = $2 WHERE id = $1', [
+      conversationId,
+      messageId,
+    ]);
   }
 
   async messageBelongsToConversation(messageId: string, conversationId: string): Promise<boolean> {
-    const { rows } = await this.pool.query('SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2', [
-      messageId,
-      conversationId,
-    ]);
+    const { rows } = await this.pool.query(
+      'SELECT 1 FROM messages WHERE id = $1 AND conversation_id = $2',
+      [messageId, conversationId],
+    );
     return rows.length > 0;
   }
 
@@ -215,7 +237,10 @@ export class ConversationsRepository {
    * (Phase 3+) will need a different summary shape entirely, not this
    * method.
    */
-  async getOtherMember(conversationId: string, excludingUserId: string): Promise<OtherMemberRow | null> {
+  async getOtherMember(
+    conversationId: string,
+    excludingUserId: string,
+  ): Promise<OtherMemberRow | null> {
     const { rows } = await this.pool.query<OtherMemberRow>(
       `SELECT u.id, u.phone_e164, u.display_name, u.avatar_version
        FROM conversation_members cm
@@ -298,7 +323,11 @@ export class ConversationsRepository {
    * this method doesn't re-check either, since it's private to that one
    * call site.
    */
-  async createGroup(creatorId: string, title: string, memberIds: string[]): Promise<ConversationRow> {
+  async createGroup(
+    creatorId: string,
+    title: string,
+    memberIds: string[],
+  ): Promise<ConversationRow> {
     const client: PoolClient = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -343,7 +372,11 @@ export class ConversationsRepository {
 
   async getGroupSettings(conversationId: string): Promise<GroupSettings | null> {
     const { rows } = await this.pool.query<{
-      send_permission: Who; add_members_permission: Who; edit_info_permission: Who; pin_permission: Who; slow_mode_seconds: number;
+      send_permission: Who;
+      add_members_permission: Who;
+      edit_info_permission: Who;
+      pin_permission: Who;
+      slow_mode_seconds: number;
     }>(
       `SELECT send_permission, add_members_permission, edit_info_permission, pin_permission, slow_mode_seconds
        FROM conversations WHERE id = $1`,
@@ -380,7 +413,11 @@ export class ConversationsRepository {
   }
 
   /** Hands the group to another member in one atomic statement: target becomes owner, previous owner becomes admin. */
-  async transferOwnership(conversationId: string, fromUserId: string, toUserId: string): Promise<void> {
+  async transferOwnership(
+    conversationId: string,
+    fromUserId: string,
+    toUserId: string,
+  ): Promise<void> {
     await this.pool.query(
       `UPDATE conversation_members
           SET role = CASE WHEN user_id = $3 THEN 'owner' ELSE 'admin' END
@@ -390,7 +427,10 @@ export class ConversationsRepository {
   }
 
   async setRole(conversationId: string, userId: string, role: 'admin' | 'member'): Promise<void> {
-    await this.pool.query(`UPDATE conversation_members SET role = $3 WHERE conversation_id = $1 AND user_id = $2`, [conversationId, userId, role]);
+    await this.pool.query(
+      `UPDATE conversation_members SET role = $3 WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, userId, role],
+    );
   }
 
   /**
@@ -398,11 +438,23 @@ export class ConversationsRepository {
    * message time excludes the message being (re)sent, so a retried delivery of an already-accepted message is not
    * mistaken for a second message inside the slow-mode window.
    */
-  async getSendContext(conversationId: string, userId: string, clientMsgId: string): Promise<{
-    kind: string; role: string; sendMessages: Who; slowModeSeconds: number; lastSentAt: Date | null;
+  async getSendContext(
+    conversationId: string,
+    userId: string,
+    clientMsgId: string,
+  ): Promise<{
+    kind: string;
+    role: string;
+    sendMessages: Who;
+    slowModeSeconds: number;
+    lastSentAt: Date | null;
   } | null> {
     const { rows } = await this.pool.query<{
-      kind: string; role: string; send_permission: Who; slow_mode_seconds: number; last_sent_at: Date | null;
+      kind: string;
+      role: string;
+      send_permission: Who;
+      slow_mode_seconds: number;
+      last_sent_at: Date | null;
     }>(
       `SELECT c.kind, cm.role, c.send_permission, c.slow_mode_seconds,
               (SELECT MAX(m.created_at) FROM messages m
@@ -414,7 +466,13 @@ export class ConversationsRepository {
     );
     const r = rows[0];
     if (!r) return null;
-    return { kind: r.kind, role: r.role, sendMessages: r.send_permission, slowModeSeconds: r.slow_mode_seconds, lastSentAt: r.last_sent_at };
+    return {
+      kind: r.kind,
+      role: r.role,
+      sendMessages: r.send_permission,
+      slowModeSeconds: r.slow_mode_seconds,
+      lastSentAt: r.last_sent_at,
+    };
   }
 
   async getRole(conversationId: string, userId: string): Promise<string | null> {
@@ -451,7 +509,10 @@ export class ConversationsRepository {
   }
 
   async updateTitle(conversationId: string, title: string): Promise<void> {
-    await this.pool.query(`UPDATE conversations SET title = $2 WHERE id = $1`, [conversationId, title]);
+    await this.pool.query(`UPDATE conversations SET title = $2 WHERE id = $1`, [
+      conversationId,
+      title,
+    ]);
   }
 
   async isGroup(conversationId: string): Promise<boolean> {

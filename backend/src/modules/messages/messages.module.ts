@@ -11,7 +11,15 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AccountModule } from '../account/account.module';
 
 @Module({
-  imports: [ConversationsModule, RealtimeModule, SessionsModule, AttachmentsModule, UsersModule, NotificationsModule, AccountModule],
+  imports: [
+    ConversationsModule,
+    RealtimeModule,
+    SessionsModule,
+    AttachmentsModule,
+    UsersModule,
+    NotificationsModule,
+    AccountModule,
+  ],
   controllers: [MessagesController],
   providers: [MessagesRepository, MessagesService],
   exports: [MessagesService],

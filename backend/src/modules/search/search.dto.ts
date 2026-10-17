@@ -39,7 +39,9 @@ export interface ConversationSearchResultDto {
   otherUserDisplayName: string | null;
 }
 
-export function toConversationSearchResultDto(row: ConversationSearchRow): ConversationSearchResultDto {
+export function toConversationSearchResultDto(
+  row: ConversationSearchRow,
+): ConversationSearchResultDto {
   return {
     id: row.id,
     kind: row.kind,

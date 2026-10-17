@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
  */
 private fun loadGulzar(context: Context): FontFamily? = runCatching {
     val present = context.assets.list("fonts")?.toSet().orEmpty()
-    if ("Gulzar-Arabic.ttf" in present) FontFamily(Font(context.assets, "fonts/Gulzar-Arabic.ttf", FontWeight.Normal)) else null
+    if ("Gulzar-Arabic.ttf" in present) FontFamily(Font("fonts/Gulzar-Arabic.ttf", context.assets, FontWeight.Normal)) else null
 }.getOrNull()
 
 @Composable

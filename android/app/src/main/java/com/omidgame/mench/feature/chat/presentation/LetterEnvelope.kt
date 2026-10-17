@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
@@ -92,7 +93,7 @@ private fun DrawScope.drawSealHalf(c: Offset, r: Float, wax: Color, heart: Path,
     val half = Path().apply {
         addRect(androidx.compose.ui.geometry.Rect(if (left) c.x - r * 1.4f else c.x, c.y - r * 1.4f, if (left) c.x else c.x + r * 1.4f, c.y + r * 1.4f))
     }
-    androidx.compose.ui.graphics.drawscope.clipPath(half) {
+    clipPath(half) {
         drawCircle(wax, radius = r, center = c)
         drawCircle(lerp(wax, Color.White, 0.18f), radius = r * 0.78f, center = c, style = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.08f))
         withTransform({ translate(c.x, c.y); scale(r * 0.42f, r * 0.42f, Offset.Zero) }) { drawPath(heart, lerp(wax, Color.White, 0.55f)) }

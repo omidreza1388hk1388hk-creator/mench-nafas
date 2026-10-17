@@ -2,8 +2,15 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DevicesRepository } from '../devices/devices.repository';
 import { UsersService } from '../users/users.service';
 import { NotificationPrivacyMode } from '../users/users.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
-import { NOTIFICATION_PROVIDER, NotificationPayload, NotificationProvider } from './notification-provider.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
+import {
+  NOTIFICATION_PROVIDER,
+  NotificationPayload,
+  NotificationProvider,
+} from './notification-provider.interface';
 import { describeRichBody } from '../messages/rich-body';
 
 export interface NotifyNewMessageParams {
@@ -182,7 +189,9 @@ export class NotificationsService {
         const hidden = recipient.notification_privacy_mode === 'hide_content';
         await this.sendToAllDevices(recipientUserId, {
           title: hidden ? 'MENCH' : params.senderDisplayName,
-          body: hidden ? 'You have a new message' : 'نامه‌ای که برات نوشته بود حالا آماده‌ی باز شدنه 💌',
+          body: hidden
+            ? 'You have a new message'
+            : 'نامه‌ای که برات نوشته بود حالا آماده‌ی باز شدنه 💌',
           data: { conversationId: params.conversationId, type: 'letter' },
           collapseKey: `letter-unlocked-${params.conversationId}`,
         });
@@ -202,7 +211,11 @@ export class NotificationsService {
         const hidden = recipient.notification_privacy_mode === 'hide_content';
         await this.sendToAllDevices(recipientUserId, {
           title: hidden ? 'MENCH' : params.senderDisplayName,
-          body: hidden ? 'You have a new message' : params.kind === 'hug' ? 'بغلت کرد 🤗' : 'برات بوس فرستاد 😘',
+          body: hidden
+            ? 'You have a new message'
+            : params.kind === 'hug'
+              ? 'بغلت کرد 🤗'
+              : 'برات بوس فرستاد 😘',
           data: { conversationId: params.conversationId, type: 'affection' },
           collapseKey: `affection-${params.conversationId}`,
         });
@@ -226,10 +239,17 @@ export class NotificationsService {
    * and would mean a sender's preference controls what a recipient's
    * lock screen reveals, which is backwards.
    */
-  private buildMessagePayload(mode: NotificationPrivacyMode, params: NotifyNewMessageParams): NotificationPayload {
-    const richPreview = params.messageKind === 'text' && params.messageBody ? describeRichBody(params.messageBody) : null;
-    const bodyPreview = richPreview
-      ?? (params.messageKind === 'text' && params.messageBody
+  private buildMessagePayload(
+    mode: NotificationPrivacyMode,
+    params: NotifyNewMessageParams,
+  ): NotificationPayload {
+    const richPreview =
+      params.messageKind === 'text' && params.messageBody
+        ? describeRichBody(params.messageBody)
+        : null;
+    const bodyPreview =
+      richPreview ??
+      (params.messageKind === 'text' && params.messageBody
         ? truncate(params.messageBody)
         : describeMessageKind(params.messageKind));
 
@@ -239,7 +259,9 @@ export class NotificationsService {
       case 'full_content':
         return {
           title: conversationLabel,
-          body: params.conversationTitle ? `${params.senderDisplayName}: ${bodyPreview}` : bodyPreview,
+          body: params.conversationTitle
+            ? `${params.senderDisplayName}: ${bodyPreview}`
+            : bodyPreview,
           data: { conversationId: params.conversationId, type: 'message' },
           collapseKey: params.conversationId,
         };
@@ -260,7 +282,10 @@ export class NotificationsService {
     }
   }
 
-  private buildGroupAddPayload(mode: NotificationPrivacyMode, params: NotifyAddedToGroupParams): NotificationPayload {
+  private buildGroupAddPayload(
+    mode: NotificationPrivacyMode,
+    params: NotifyAddedToGroupParams,
+  ): NotificationPayload {
     switch (mode) {
       case 'full_content':
         return {

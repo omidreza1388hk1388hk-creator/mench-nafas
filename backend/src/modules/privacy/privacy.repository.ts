@@ -26,7 +26,10 @@ export class PrivacyRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async get(userId: string): Promise<PrivacySettings> {
-    const { rows } = await this.pool.query<PrivacyRow>('SELECT * FROM user_privacy WHERE user_id = $1', [userId]);
+    const { rows } = await this.pool.query<PrivacyRow>(
+      'SELECT * FROM user_privacy WHERE user_id = $1',
+      [userId],
+    );
     return rows[0] ? toSettings(rows[0]) : { ...DEFAULT_PRIVACY };
   }
 
@@ -47,7 +50,10 @@ export class PrivacyRepository {
   }
 
   /** Conversation role lookup for the disappearing-timer permission check. */
-  async membership(conversationId: string, userId: string): Promise<{ kind: 'direct' | 'group'; role: 'owner' | 'member' } | null> {
+  async membership(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ kind: 'direct' | 'group'; role: 'owner' | 'member' } | null> {
     const { rows } = await this.pool.query<{ kind: 'direct' | 'group'; role: 'owner' | 'member' }>(
       `SELECT c.kind, cm.role
          FROM conversations c
@@ -67,7 +73,10 @@ export class PrivacyRepository {
   }
 
   async setDisappearSeconds(conversationId: string, seconds: number | null): Promise<void> {
-    await this.pool.query('UPDATE conversations SET disappear_after_seconds = $2 WHERE id = $1', [conversationId, seconds]);
+    await this.pool.query('UPDATE conversations SET disappear_after_seconds = $2 WHERE id = $1', [
+      conversationId,
+      seconds,
+    ]);
   }
 
   async memberIds(conversationId: string): Promise<string[]> {
@@ -82,8 +91,14 @@ export class PrivacyRepository {
    * Marks due messages as deleted (same state as a user delete, so every client already renders it)
    * and returns them. FOR UPDATE SKIP LOCKED keeps two backend instances from sweeping the same rows.
    */
-  async sweepExpired(limit: number): Promise<Array<{ id: string; conversation_id: string; deleted_at: Date }>> {
-    const { rows } = await this.pool.query<{ id: string; conversation_id: string; deleted_at: Date }>(
+  async sweepExpired(
+    limit: number,
+  ): Promise<Array<{ id: string; conversation_id: string; deleted_at: Date }>> {
+    const { rows } = await this.pool.query<{
+      id: string;
+      conversation_id: string;
+      deleted_at: Date;
+    }>(
       `WITH due AS (
          SELECT id FROM messages
           WHERE expires_at IS NOT NULL AND expires_at <= now() AND deleted_at IS NULL

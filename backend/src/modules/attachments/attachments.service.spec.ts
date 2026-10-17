@@ -1,6 +1,10 @@
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AttachmentsService, UploadAttachmentInput, normalizeWaveform } from './attachments.service';
+import {
+  AttachmentsService,
+  UploadAttachmentInput,
+  normalizeWaveform,
+} from './attachments.service';
 import { AttachmentsRepository, AttachmentRow } from './attachments.repository';
 import { StorageProvider } from '../../storage/storage-provider.interface';
 
@@ -44,34 +48,49 @@ describe('AttachmentsService', () => {
   };
 
   beforeEach(() => {
-    repository = { create: jest.fn(), findById: jest.fn() } as unknown as jest.Mocked<AttachmentsRepository>;
+    repository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+    } as unknown as jest.Mocked<AttachmentsRepository>;
     storageProvider = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
     config = new ConfigService({ MAX_ATTACHMENT_SIZE_BYTES: 1024 * 1024 });
 
-    storageProvider.put.mockResolvedValue({ key: 'irrelevant', contentType: 'irrelevant', sizeBytes: 0 });
-    repository.create.mockImplementation(async (input) => ({
-      id: 'att-1',
-      uploader_id: input.uploaderId,
-      conversation_id: input.conversationId,
-      kind: input.kind,
-      storage_key: input.storageKey,
-      thumbnail_storage_key: input.thumbnailStorageKey,
-      original_filename: input.originalFilename,
-      mime_type: input.mimeType,
-      size_bytes: String(input.sizeBytes),
-      width_px: input.widthPx,
-      height_px: input.heightPx,
-      duration_ms: input.durationMs,
-      waveform: input.waveform ?? null,
-      created_at: new Date(),
-    }) as AttachmentRow);
+    storageProvider.put.mockResolvedValue({
+      key: 'irrelevant',
+      contentType: 'irrelevant',
+      sizeBytes: 0,
+    });
+    repository.create.mockImplementation(
+      async (input) =>
+        ({
+          id: 'att-1',
+          uploader_id: input.uploaderId,
+          conversation_id: input.conversationId,
+          kind: input.kind,
+          storage_key: input.storageKey,
+          thumbnail_storage_key: input.thumbnailStorageKey,
+          original_filename: input.originalFilename,
+          mime_type: input.mimeType,
+          size_bytes: String(input.sizeBytes),
+          width_px: input.widthPx,
+          height_px: input.heightPx,
+          duration_ms: input.durationMs,
+          waveform: input.waveform ?? null,
+          created_at: new Date(),
+        }) as AttachmentRow,
+    );
 
     service = new AttachmentsService(repository, storageProvider, config);
   });
 
   it('rejects an empty file', async () => {
     await expect(
-      service.upload({ ...baseInput, originalFilename: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) }),
+      service.upload({
+        ...baseInput,
+        originalFilename: 'empty.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.alloc(0),
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

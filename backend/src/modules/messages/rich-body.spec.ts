@@ -3,7 +3,9 @@ import { describeRichBody } from './rich-body';
 describe('describeRichBody', () => {
   it('recognises catalog and custom stickers', () => {
     expect(describeRichBody('sticker:v1:love_01')).toBe('[sticker]');
-    expect(describeRichBody('sticker:v1:c:2:%F0%9F%92%97:%D8%AF%D9%88%D8%B3%D8%AA%D8%AA')).toBe('[sticker]');
+    expect(describeRichBody('sticker:v1:c:2:%F0%9F%92%97:%D8%AF%D9%88%D8%B3%D8%AA%D8%AA')).toBe(
+      '[sticker]',
+    );
   });
 
   it('recognises gifs only with a valid id and dimensions', () => {

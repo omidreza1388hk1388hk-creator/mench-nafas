@@ -24,6 +24,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.omidgame.mench.core.ui.adaptive.LIST_PANE_WIDTH_DP
+import com.omidgame.mench.feature.product.productRoutes
 import com.omidgame.mench.core.ui.adaptive.isTwoPane
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -326,7 +327,6 @@ fun MenchNavGraph(
                 },
             )
             }
-            }
 
             if (wide) {
                 Row(modifier = Modifier.fillMaxSize()) {
@@ -364,8 +364,9 @@ fun MenchNavGraph(
             } else {
                 listPane()
             }
+            }
         }
-        com.omidgame.mench.feature.product.productRoutes(
+        productRoutes(
             navController = navController,
             onOpenChat = { id -> navController.navigate(Routes.chat(id)) },
             onLoggedOut = { navController.navigate(Routes.AUTH) { popUpTo(0) { inclusive = true } } },

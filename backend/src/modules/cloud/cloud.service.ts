@@ -35,7 +35,17 @@ export class CloudService {
       const ins = await this.pool.query<{ id: string }>(
         `INSERT INTO saved_items (user_id, kind, body, attachment_id, source_conversation_id, source_message_id, source_sender_name, source_created_at, folder)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [userId, kind, m.body, m.attachment_id, m.conversation_id, m.id, m.sender_name, m.created_at, folder?.slice(0, 40) ?? null],
+        [
+          userId,
+          kind,
+          m.body,
+          m.attachment_id,
+          m.conversation_id,
+          m.id,
+          m.sender_name,
+          m.created_at,
+          folder?.slice(0, 40) ?? null,
+        ],
       );
       return { id: ins.rows[0].id };
     } catch (e: any) {
@@ -46,15 +56,24 @@ export class CloudService {
 
   async addNote(userId: string, body: string, folder?: string, tags?: string[]) {
     const text = (body ?? '').trim();
-    if (!text || text.length > 8000) throw new BadRequestException('Note must be 1-8000 characters');
+    if (!text || text.length > 8000)
+      throw new BadRequestException('Note must be 1-8000 characters');
     const { rows } = await this.pool.query<{ id: string }>(
       "INSERT INTO saved_items (user_id, kind, body, folder, tags) VALUES ($1,'note',$2,$3,$4) RETURNING id",
-      [userId, text, folder?.slice(0, 40) ?? null, (tags ?? []).slice(0, 10).map((t) => t.slice(0, 30))],
+      [
+        userId,
+        text,
+        folder?.slice(0, 40) ?? null,
+        (tags ?? []).slice(0, 10).map((t) => t.slice(0, 30)),
+      ],
     );
     return { id: rows[0].id };
   }
 
-  async list(userId: string, q: { q?: string; folder?: string; tag?: string; kind?: string; limit: number; offset: number }) {
+  async list(
+    userId: string,
+    q: { q?: string; folder?: string; tag?: string; kind?: string; limit: number; offset: number },
+  ) {
     const { rows } = await this.pool.query(
       `SELECT s.id, s.kind, s.body, s.folder, s.tags, s.created_at, s.source_conversation_id, s.source_message_id,
               s.source_sender_name, s.source_created_at, s.attachment_id,
@@ -66,19 +85,51 @@ export class CloudService {
           AND ($4::text IS NULL OR $4 = ANY (s.tags))
           AND ($5::text IS NULL OR s.kind = $5)
         ORDER BY s.created_at DESC LIMIT $6 OFFSET $7`,
-      [userId, q.q?.trim() || null, q.folder ?? null, q.tag ?? null, q.kind ?? null, q.limit, q.offset],
+      [
+        userId,
+        q.q?.trim() || null,
+        q.folder ?? null,
+        q.tag ?? null,
+        q.kind ?? null,
+        q.limit,
+        q.offset,
+      ],
     );
     return rows.map((r) => ({
-      id: r.id, kind: r.kind, text: r.body, folder: r.folder, tags: r.tags, savedAt: r.created_at,
-      source: r.source_message_id ? { conversationId: r.source_conversation_id, messageId: r.source_message_id, senderName: r.source_sender_name, sentAt: r.source_created_at } : null,
-      attachment: r.attachment_id ? { id: r.attachment_id, filename: r.original_filename, mime: r.mime_type, sizeBytes: Number(r.size_bytes) } : null,
+      id: r.id,
+      kind: r.kind,
+      text: r.body,
+      folder: r.folder,
+      tags: r.tags,
+      savedAt: r.created_at,
+      source: r.source_message_id
+        ? {
+            conversationId: r.source_conversation_id,
+            messageId: r.source_message_id,
+            senderName: r.source_sender_name,
+            sentAt: r.source_created_at,
+          }
+        : null,
+      attachment: r.attachment_id
+        ? {
+            id: r.attachment_id,
+            filename: r.original_filename,
+            mime: r.mime_type,
+            sizeBytes: Number(r.size_bytes),
+          }
+        : null,
     }));
   }
 
   async update(userId: string, id: string, patch: { folder?: string | null; tags?: string[] }) {
     const { rowCount } = await this.pool.query(
       'UPDATE saved_items SET folder = $3, tags = $4 WHERE id = $1 AND user_id = $2',
-      [id, userId, patch.folder?.slice(0, 40) ?? null, (patch.tags ?? []).slice(0, 10).map((t) => t.slice(0, 30))],
+      [
+        id,
+        userId,
+        patch.folder?.slice(0, 40) ?? null,
+        (patch.tags ?? []).slice(0, 10).map((t) => t.slice(0, 30)),
+      ],
     );
     if (!rowCount) throw new NotFoundException();
   }
@@ -88,14 +139,37 @@ export class CloudService {
   }
 
   async folders(userId: string) {
-    const f = await this.pool.query("SELECT folder, count(*)::int AS n FROM saved_items WHERE user_id = $1 AND folder IS NOT NULL GROUP BY folder ORDER BY folder", [userId]);
-    const t = await this.pool.query('SELECT tag, count(*)::int AS n FROM saved_items, unnest(tags) AS tag WHERE user_id = $1 GROUP BY tag ORDER BY n DESC LIMIT 30', [userId]);
+    const f = await this.pool.query(
+      'SELECT folder, count(*)::int AS n FROM saved_items WHERE user_id = $1 AND folder IS NOT NULL GROUP BY folder ORDER BY folder',
+      [userId],
+    );
+    const t = await this.pool.query(
+      'SELECT tag, count(*)::int AS n FROM saved_items, unnest(tags) AS tag WHERE user_id = $1 GROUP BY tag ORDER BY n DESC LIMIT 30',
+      [userId],
+    );
     return { folders: f.rows, tags: t.rows };
   }
 
   /** Every attachment in every conversation this account belongs to, filterable and sortable. */
-  async files(userId: string, q: { kind?: string; conversationId?: string; senderId?: string; q?: string; sort: 'date' | 'size' | 'name'; dir: 'asc' | 'desc'; limit: number; offset: number }) {
-    const sortCol = q.sort === 'size' ? 'a.size_bytes' : q.sort === 'name' ? 'a.original_filename' : 'a.created_at';
+  async files(
+    userId: string,
+    q: {
+      kind?: string;
+      conversationId?: string;
+      senderId?: string;
+      q?: string;
+      sort: 'date' | 'size' | 'name';
+      dir: 'asc' | 'desc';
+      limit: number;
+      offset: number;
+    },
+  ) {
+    const sortCol =
+      q.sort === 'size'
+        ? 'a.size_bytes'
+        : q.sort === 'name'
+          ? 'a.original_filename'
+          : 'a.created_at';
     const dir = q.dir === 'asc' ? 'ASC' : 'DESC';
     const { rows } = await this.pool.query(
       `SELECT a.id, a.kind, a.original_filename, a.mime_type, a.size_bytes, a.created_at, a.conversation_id,
@@ -109,11 +183,27 @@ export class CloudService {
           AND ($4::uuid IS NULL OR a.uploader_id = $4)
           AND ($5::text IS NULL OR a.original_filename ILIKE '%' || $5 || '%')
         ORDER BY ${sortCol} ${dir} LIMIT $6 OFFSET $7`,
-      [userId, q.kind ?? null, q.conversationId ?? null, q.senderId ?? null, q.q?.trim() || null, q.limit, q.offset],
+      [
+        userId,
+        q.kind ?? null,
+        q.conversationId ?? null,
+        q.senderId ?? null,
+        q.q?.trim() || null,
+        q.limit,
+        q.offset,
+      ],
     );
     return rows.map((r) => ({
-      id: r.id, kind: r.kind, filename: r.original_filename, mime: r.mime_type, sizeBytes: Number(r.size_bytes),
-      createdAt: r.created_at, conversationId: r.conversation_id, messageId: r.message_id, senderId: r.sender_id, senderName: r.sender_name,
+      id: r.id,
+      kind: r.kind,
+      filename: r.original_filename,
+      mime: r.mime_type,
+      sizeBytes: Number(r.size_bytes),
+      createdAt: r.created_at,
+      conversationId: r.conversation_id,
+      messageId: r.message_id,
+      senderId: r.sender_id,
+      senderName: r.sender_name,
     }));
   }
 

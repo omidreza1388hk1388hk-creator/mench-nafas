@@ -22,12 +22,19 @@ export function sanitizeStrokes(input: unknown): Stroke[] {
     if (typeof raw !== 'object' || raw === null) throw new Error(`stroke ${i} is not an object`);
     const { color, width, points } = raw as Record<string, unknown>;
     if (typeof color !== 'string' || !COLOR.test(color)) throw new Error(`stroke ${i}: bad color`);
-    if (typeof width !== 'number' || !Number.isFinite(width) || width < 1 || width > 40) throw new Error(`stroke ${i}: bad width`);
-    if (!Array.isArray(points) || points.length < 2 || points.length % 2 !== 0 || points.length > MAX_POINT_VALUES_PER_STROKE) {
+    if (typeof width !== 'number' || !Number.isFinite(width) || width < 1 || width > 40)
+      throw new Error(`stroke ${i}: bad width`);
+    if (
+      !Array.isArray(points) ||
+      points.length < 2 ||
+      points.length % 2 !== 0 ||
+      points.length > MAX_POINT_VALUES_PER_STROKE
+    ) {
       throw new Error(`stroke ${i}: bad points`);
     }
     for (const p of points) {
-      if (typeof p !== 'number' || !Number.isFinite(p) || p < 0 || p > 1) throw new Error(`stroke ${i}: points must be numbers in 0..1`);
+      if (typeof p !== 'number' || !Number.isFinite(p) || p < 0 || p > 1)
+        throw new Error(`stroke ${i}: points must be numbers in 0..1`);
     }
     return { color: color.toLowerCase(), width, points: points as number[] };
   });

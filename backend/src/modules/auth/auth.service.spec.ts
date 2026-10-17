@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 
 function build(allowed?: string) {
-  const otp = { requestOtp: jest.fn().mockResolvedValue({ challengeId: 'c1' }), verifyOtp: jest.fn() };
+  const otp = {
+    requestOtp: jest.fn().mockResolvedValue({ challengeId: 'c1' }),
+    verifyOtp: jest.fn(),
+  };
   const service = new AuthService(
     new ConfigService(allowed === undefined ? {} : { ALLOWED_PHONE_NUMBERS: allowed }),
     otp as never,

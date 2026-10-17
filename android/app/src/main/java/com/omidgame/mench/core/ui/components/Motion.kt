@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
@@ -84,8 +85,6 @@ fun AnimatedSendButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     /** Phase 2A: long-press opens "send silently / schedule". Null keeps the plain tap-only button. */
-    onLongClick: (() -> Unit)? = null,
-    /** Phase 3A: long-press opens the message-effect picker. Null = no long-press action. */
     onLongClick: (() -> Unit)? = null,
 ) {
     val haptics = LocalHapticFeedback.current
@@ -249,7 +248,7 @@ fun ConfettiBurst(modifier: Modifier = Modifier, seed: Int = 7) {
                 val x = (p[0] + p[3] * t) * size.width
                 val y = -20f + t * p[1] * (size.height + 40f)
                 val angle = p[2] + t * 12f
-                androidx.compose.ui.graphics.drawscope.rotate(degrees = angle * 57.3f, pivot = androidx.compose.ui.geometry.Offset(x, y)) {
+                rotate(degrees = angle * 57.3f, pivot = androidx.compose.ui.geometry.Offset(x, y)) {
                     drawRect(
                         color = palette[p[4].toInt()].copy(alpha = (1f - t * 0.6f)),
                         topLeft = androidx.compose.ui.geometry.Offset(x - 5f, y - 3f),

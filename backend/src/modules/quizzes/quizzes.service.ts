@@ -1,6 +1,16 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { QuizQuestion, sanitizeAnswers, sanitizeQuestions, scoreAnswers } from './quiz';
 import { QuizResultRow, QuizRow, QuizzesRepository } from './quizzes.repository';
 
@@ -60,7 +70,11 @@ export class QuizzesService {
     });
   }
 
-  async create(conversationId: string, userId: string, dto: { title: string; questions: unknown[] }): Promise<QuizSummaryDto> {
+  async create(
+    conversationId: string,
+    userId: string,
+    dto: { title: string; questions: unknown[] },
+  ): Promise<QuizSummaryDto> {
     await this.assertDirectMember(conversationId, userId);
     let questions: QuizQuestion[];
     try {
@@ -68,12 +82,28 @@ export class QuizzesService {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
-    if ((await this.quizzesRepository.countByAuthor(conversationId, userId)) >= MAX_QUIZZES_PER_AUTHOR) {
+    if (
+      (await this.quizzesRepository.countByAuthor(conversationId, userId)) >= MAX_QUIZZES_PER_AUTHOR
+    ) {
       throw new BadRequestException(`At most ${MAX_QUIZZES_PER_AUTHOR} quizzes per person`);
     }
-    const row = await this.quizzesRepository.create(conversationId, userId, dto.title.trim(), questions);
+    const row = await this.quizzesRepository.create(
+      conversationId,
+      userId,
+      dto.title.trim(),
+      questions,
+    );
     await this.notifyChanged(conversationId, userId);
-    return { id: row.id, title: row.title, isMine: true, questionCount: questions.length, myScore: null, myTotal: null, partnerScore: null, partnerTotal: null };
+    return {
+      id: row.id,
+      title: row.title,
+      isMine: true,
+      questionCount: questions.length,
+      myScore: null,
+      myTotal: null,
+      partnerScore: null,
+      partnerTotal: null,
+    };
   }
 
   async get(conversationId: string, quizId: string, userId: string): Promise<QuizDetailDto> {
@@ -87,11 +117,20 @@ export class QuizzesService {
       title: quiz.title,
       isMine: mine,
       answered,
-      questions: quiz.questions.map((q) => ({ q: q.q, options: q.options, correct: reveal ? q.correct : null })),
+      questions: quiz.questions.map((q) => ({
+        q: q.q,
+        options: q.options,
+        correct: reveal ? q.correct : null,
+      })),
     };
   }
 
-  async answer(conversationId: string, quizId: string, userId: string, raw: unknown[]): Promise<{ score: number; total: number; correct: number[] }> {
+  async answer(
+    conversationId: string,
+    quizId: string,
+    userId: string,
+    raw: unknown[],
+  ): Promise<{ score: number; total: number; correct: number[] }> {
     await this.assertDirectMember(conversationId, userId);
     const quiz = await this.findInConversation(conversationId, quizId);
     if (quiz.author_id === userId) throw new BadRequestException('You cannot answer your own quiz');
@@ -102,23 +141,34 @@ export class QuizzesService {
       throw new BadRequestException((e as Error).message);
     }
     const score = scoreAnswers(quiz.questions, answers);
-    const saved = await this.quizzesRepository.saveResult(quizId, userId, answers, score, quiz.questions.length);
+    const saved = await this.quizzesRepository.saveResult(
+      quizId,
+      userId,
+      answers,
+      score,
+      quiz.questions.length,
+    );
     if (!saved) throw new ConflictException('You already answered this quiz');
-    this.realtimeBroadcaster.broadcastToUsers([quiz.author_id], { type: 'quiz.changed', conversationId });
+    this.realtimeBroadcaster.broadcastToUsers([quiz.author_id], {
+      type: 'quiz.changed',
+      conversationId,
+    });
     return { score, total: quiz.questions.length, correct: quiz.questions.map((q) => q.correct) };
   }
 
   async remove(conversationId: string, quizId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const quiz = await this.findInConversation(conversationId, quizId);
-    if (quiz.author_id !== userId) throw new ForbiddenException('Only the author can delete a quiz');
+    if (quiz.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a quiz');
     await this.quizzesRepository.delete(quizId);
     await this.notifyChanged(conversationId, userId);
   }
 
   private async findInConversation(conversationId: string, quizId: string): Promise<QuizRow> {
     const quiz = await this.quizzesRepository.findById(quizId);
-    if (!quiz || quiz.conversation_id !== conversationId) throw new NotFoundException('Quiz not found');
+    if (!quiz || quiz.conversation_id !== conversationId)
+      throw new NotFoundException('Quiz not found');
     return quiz;
   }
 

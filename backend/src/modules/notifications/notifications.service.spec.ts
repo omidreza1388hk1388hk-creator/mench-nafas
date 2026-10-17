@@ -141,7 +141,10 @@ describe('NotificationsService', () => {
           messageKind: 'text',
           messageBody,
         });
-        expect(provider.sendToDevice).toHaveBeenCalledWith('fake-token', expect.objectContaining({ body: expected }));
+        expect(provider.sendToDevice).toHaveBeenCalledWith(
+          'fake-token',
+          expect.objectContaining({ body: expected }),
+        );
       }
     });
 
@@ -235,7 +238,9 @@ describe('NotificationsService', () => {
       // test would fail loudly on an undefined-mode branch instead of
       // silently passing.
       broadcaster.isUserConnected.mockReturnValue(false);
-      users.findById.mockResolvedValue(makeUser({ id: 'user-1', notification_privacy_mode: 'hide_content' }));
+      users.findById.mockResolvedValue(
+        makeUser({ id: 'user-1', notification_privacy_mode: 'hide_content' }),
+      );
       devices.listPushableForUser.mockResolvedValue([makeDevice()]);
 
       await service.notifyNewMessage({
@@ -248,7 +253,10 @@ describe('NotificationsService', () => {
       });
 
       expect(users.findById).toHaveBeenCalledWith('user-1');
-      expect(provider.sendToDevice).toHaveBeenCalledWith('fake-token', expect.objectContaining({ title: 'MENCH' }));
+      expect(provider.sendToDevice).toHaveBeenCalledWith(
+        'fake-token',
+        expect.objectContaining({ title: 'MENCH' }),
+      );
     });
 
     it('sends to every registered device for a recipient with multiple devices', async () => {
@@ -275,11 +283,15 @@ describe('NotificationsService', () => {
 
     it('one recipient failing (e.g. provider throws) does not stop other recipients from being notified', async () => {
       broadcaster.isUserConnected.mockReturnValue(false);
-      users.findById.mockResolvedValueOnce(makeUser({ id: 'user-1' })).mockResolvedValueOnce(makeUser({ id: 'user-2' }));
+      users.findById
+        .mockResolvedValueOnce(makeUser({ id: 'user-1' }))
+        .mockResolvedValueOnce(makeUser({ id: 'user-2' }));
       devices.listPushableForUser
         .mockResolvedValueOnce([makeDevice({ push_token: 'token-1' })])
         .mockResolvedValueOnce([makeDevice({ push_token: 'token-2' })]);
-      provider.sendToDevice.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(undefined);
+      provider.sendToDevice
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce(undefined);
 
       await service.notifyNewMessage({
         recipientUserIds: ['user-1', 'user-2'],

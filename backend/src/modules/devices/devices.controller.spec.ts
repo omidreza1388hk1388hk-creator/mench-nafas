@@ -33,7 +33,10 @@ describe('DevicesController (settings: current device + log out others)', () => 
   it('marks only the requesting device as current and never leaks push tokens', async () => {
     devices.listActiveForUser.mockResolvedValue([row('dev-a'), row('dev-b')] as never);
     const result = await controller.listDevices(req);
-    expect(result.map((d) => [d.id, d.isCurrent])).toEqual([['dev-a', true], ['dev-b', false]]);
+    expect(result.map((d) => [d.id, d.isCurrent])).toEqual([
+      ['dev-a', true],
+      ['dev-b', false],
+    ]);
     expect(Object.keys(result[0])).not.toContain('push_token');
   });
 
@@ -45,7 +48,7 @@ describe('DevicesController (settings: current device + log out others)', () => 
     expect(result).toEqual({ ok: true, revoked: 2 });
   });
 
-  it('still returns 404 for a device that is not the caller\'s', async () => {
+  it("still returns 404 for a device that is not the caller's", async () => {
     devices.findByIdForUser.mockResolvedValue(null);
     await expect(
       controller.revokeDevice(req, '11111111-1111-4111-8111-111111111111'),

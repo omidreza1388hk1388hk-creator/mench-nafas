@@ -1,4 +1,20 @@
-import { Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFile, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Req,
+  Res,
+  UploadedFile,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Response } from 'express';
@@ -41,69 +57,13 @@ export class UsersController {
   /** Upload/replace the caller's profile photo (multipart field "file", max 8 MB; server resizes to 256x256). */
   @Post('me/avatar')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } }),
+  )
   async uploadAvatar(@Req() req: any, @UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('file is required');
     const user = await this.usersService.setAvatar(req.user.sub, file.buffer);
     return toUserDto(user);
-  }
-
-  /** Find someone by @username (public fields only — never the phone number). */
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @Get('by-username/:username')
-  async getByUsername(@Req() req: any, @Param('username') username: string) {
-    const found = await this.usersService.findByUsernameOrThrow(req.user.sub, username);
-    await this.privacy.assertDiscoverable(found.id, req.user.sub); // "who can find me" (Phase 4C)
-    return toPublicUserDto(found);
-  }
-
-  /** The caller's own invite code; the app builds mench://invite/<code> and the QR from it. */
-  @Get('me/invite')
-  async getMyInvite(@Req() req: any) {
-    return { code: await this.usersService.getInviteCode(req.user.sub) };
-  }
-
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @Get('invite/:code')
-  async resolveInvite(@Req() req: any, @Param('code') code: string) {
-    const found = await this.usersService.resolveInviteCode(req.user.sub, code);
-    await this.privacy.assertDiscoverable(found.id, req.user.sub);
-    return toPublicUserDto(found);
-  }
-
-  @Get('me/blocks')
-  async listBlocked(@Req() req: any) {
-    return (await this.usersService.listBlocked(req.user.sub)).map(toPublicUserDto);
-  }
-
-  /** Full JSON export of what the user authored — offered before deleting the account. */
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  @Get('me/export')
-  async exportMyData(@Req() req: any) {
-    return this.usersService.exportData(req.user.sub);
-  }
-
-  /** Irreversible: anonymises the account and signs out every device. Body must be {"confirm":"DELETE"}. */
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  @Delete('me')
-  @HttpCode(200)
-  async deleteMe(@Req() req: any, @Body() _dto: DeleteAccountDto) {
-    await this.usersService.deleteAccount(req.user.sub);
-    return { ok: true };
-  }
-
-  @Post(':userId/block')
-  @HttpCode(200)
-  async block(@Req() req: any, @Param('userId', ParseUUIDPipe) userId: string) {
-    await this.usersService.blockUser(req.user.sub, userId);
-    return { ok: true };
-  }
-
-  @Delete(':userId/block')
-  @HttpCode(200)
-  async unblock(@Req() req: any, @Param('userId', ParseUUIDPipe) userId: string) {
-    await this.usersService.unblockUser(req.user.sub, userId);
-    return { ok: true };
   }
 
   /** Phase 4C: publish my end-to-end-encryption public key. */

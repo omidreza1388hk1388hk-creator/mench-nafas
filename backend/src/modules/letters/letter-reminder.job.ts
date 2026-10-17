@@ -41,7 +41,10 @@ export class LetterReminderJob implements OnModuleInit, OnModuleDestroy {
     try {
       const due = await this.lettersRepository.claimDueReminders(50);
       for (const letter of due) {
-        const recipients = await this.conversationsRepository.listOtherMemberIds(letter.conversation_id, letter.author_id);
+        const recipients = await this.conversationsRepository.listOtherMemberIds(
+          letter.conversation_id,
+          letter.author_id,
+        );
         const sender = await this.usersService.findById(letter.author_id);
         await this.notificationsService.notifyLetterUnlocked({
           recipientUserIds: recipients,

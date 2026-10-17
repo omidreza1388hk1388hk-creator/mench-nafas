@@ -1,6 +1,8 @@
 package com.omidgame.mench.feature.chat.presentation
 
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -166,7 +168,7 @@ fun YearInLoveDialog(stats: YearStats, messages: com.omidgame.mench.feature.chat
                 .fillMaxSize()
                 .background(storyBrush(safeIndex))
                 .pointerInput(safeIndex, rtl) {
-                    androidx.compose.foundation.gestures.detectTapGestures { offset ->
+                    detectTapGestures { offset ->
                         val tappedEnd = if (rtl) offset.x < size.width / 2f else offset.x >= size.width / 2f
                         val next = stepStory(safeIndex, if (tappedEnd) 1 else -1, last + 1)
                         if (next == null) { if (tappedEnd) onDismiss() } else index = next

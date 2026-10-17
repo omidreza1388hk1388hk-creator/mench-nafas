@@ -16,6 +16,8 @@ import com.omidgame.mench.core.database.MIGRATION_9_10
 import com.omidgame.mench.core.database.MIGRATION_10_11
 import com.omidgame.mench.core.database.MIGRATION_11_12
 import com.omidgame.mench.core.database.MIGRATION_12_13
+import com.omidgame.mench.core.database.MIGRATION_13_14
+import com.omidgame.mench.core.database.MIGRATION_14_15
 import com.omidgame.mench.core.database.MessageDao
 import com.omidgame.mench.core.database.OutboxDao
 import com.omidgame.mench.core.database.UserDao

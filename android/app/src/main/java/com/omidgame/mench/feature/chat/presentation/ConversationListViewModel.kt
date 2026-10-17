@@ -25,7 +25,6 @@ class ConversationListViewModel @Inject constructor(
     private val productRepository: com.omidgame.mench.feature.product.ProductRepository,
     private val ecosystemRepository: com.omidgame.mench.feature.product.EcosystemRepository,
     private val profileRepository: com.omidgame.mench.feature.settings.domain.ProfileRepository,
-    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 

@@ -50,10 +50,10 @@ export class SessionsRepository {
   }
 
   async revoke(sessionId: string, userId: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE sessions SET revoked_at = now() WHERE id = $1 AND user_id = $2`,
-      [sessionId, userId],
-    );
+    await this.pool.query(`UPDATE sessions SET revoked_at = now() WHERE id = $1 AND user_id = $2`, [
+      sessionId,
+      userId,
+    ]);
   }
 
   async revokeAllForUser(userId: string): Promise<void> {

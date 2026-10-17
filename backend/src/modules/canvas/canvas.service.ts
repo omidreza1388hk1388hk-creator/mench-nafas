@@ -1,6 +1,9 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { CanvasRepository } from './canvas.repository';
 import { MAX_STROKES_PER_CANVAS, Stroke, sanitizeStrokes } from './strokes';
 
@@ -29,7 +32,10 @@ export class CanvasService {
     if (existing + clean.length > MAX_STROKES_PER_CANVAS) {
       throw new BadRequestException('The canvas is full — clear it to keep drawing');
     }
-    const count = await this.canvasRepository.append(conversationId, clean.map((s) => ({ ...s, by: userId })));
+    const count = await this.canvasRepository.append(
+      conversationId,
+      clean.map((s) => ({ ...s, by: userId })),
+    );
     await this.notifyChanged(conversationId, userId);
     return { count };
   }

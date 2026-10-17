@@ -39,8 +39,10 @@ export class LinkPreviewService {
     } catch {
       throw new BadRequestException('Invalid URL');
     }
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new BadRequestException('Only http(s) links');
-    if (url.username || url.password) throw new BadRequestException('Credentials in URLs are not allowed');
+    if (url.protocol !== 'http:' && url.protocol !== 'https:')
+      throw new BadRequestException('Only http(s) links');
+    if (url.username || url.password)
+      throw new BadRequestException('Credentials in URLs are not allowed');
 
     const key = url.toString();
     const hit = this.cache.get(key);
@@ -75,7 +77,11 @@ export class LinkPreviewService {
             dns.lookup(hostname, options as dns.LookupOneOptions, (err, address, family) => {
               if (err) return callback(err, address as any, family as any);
               if (this.isForbiddenAddress(String(address))) {
-                return callback(new Error('Address not allowed') as NodeJS.ErrnoException, '' as any, 4 as any);
+                return callback(
+                  new Error('Address not allowed') as NodeJS.ErrnoException,
+                  '' as any,
+                  4 as any,
+                );
               }
               return callback(null, address as any, family as any);
             });
@@ -88,7 +94,8 @@ export class LinkPreviewService {
             if (depth >= MAX_REDIRECTS) return reject(new Error('Too many redirects'));
             try {
               const next = new URL(res.headers.location, url);
-              if (next.protocol !== 'http:' && next.protocol !== 'https:') return reject(new Error('Bad redirect'));
+              if (next.protocol !== 'http:' && next.protocol !== 'https:')
+                return reject(new Error('Bad redirect'));
               return resolve(this.fetchHtml(next, depth + 1));
             } catch {
               return reject(new Error('Bad redirect'));
@@ -154,7 +161,8 @@ export class LinkPreviewService {
     };
     const titleTag = this.clean(head.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? null);
     const title = meta('og:title') ?? meta('twitter:title') ?? titleTag;
-    const description = meta('og:description') ?? meta('twitter:description') ?? meta('description');
+    const description =
+      meta('og:description') ?? meta('twitter:description') ?? meta('description');
     if (!title && !description) return null;
     return {
       url: url.toString(),

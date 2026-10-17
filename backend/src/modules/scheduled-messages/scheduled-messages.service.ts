@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConversationsService } from '../conversations/conversations.service';
 import { MessagesService } from '../messages/messages.service';
 import { ScheduledMessageDto } from './scheduled-message.dto';
@@ -15,8 +22,10 @@ const STUCK_AFTER_SECONDS = 120;
 export function parseSendAt(raw: string, now: number): Date {
   const at = new Date(raw);
   if (Number.isNaN(at.getTime())) throw new BadRequestException('sendAt is not a valid time');
-  if (at.getTime() < now + MIN_LEAD_MS) throw new BadRequestException('Pick a time at least a few seconds in the future');
-  if (at.getTime() > now + MAX_LEAD_MS) throw new BadRequestException('Messages can be scheduled at most one year ahead');
+  if (at.getTime() < now + MIN_LEAD_MS)
+    throw new BadRequestException('Pick a time at least a few seconds in the future');
+  if (at.getTime() > now + MAX_LEAD_MS)
+    throw new BadRequestException('Messages can be scheduled at most one year ahead');
   return at;
 }
 
@@ -42,12 +51,22 @@ export class ScheduledMessagesService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async schedule(input: { conversationId: string; senderId: string; clientMsgId: string; body: string; sendAt: string; silent?: boolean }): Promise<ScheduledMessageDto> {
+  async schedule(input: {
+    conversationId: string;
+    senderId: string;
+    clientMsgId: string;
+    body: string;
+    sendAt: string;
+    silent?: boolean;
+  }): Promise<ScheduledMessageDto> {
     await this.conversationsService.assertMember(input.conversationId, input.senderId);
     const body = input.body.trim();
     if (!body) throw new BadRequestException('Message is empty');
     const sendAt = parseSendAt(input.sendAt, this.nowFn());
-    if ((await this.repository.countPending(input.conversationId, input.senderId)) >= MAX_PENDING_PER_CONVERSATION) {
+    if (
+      (await this.repository.countPending(input.conversationId, input.senderId)) >=
+      MAX_PENDING_PER_CONVERSATION
+    ) {
       throw new BadRequestException('Too many scheduled messages in this chat');
     }
     const row = await this.repository.create({
@@ -67,7 +86,8 @@ export class ScheduledMessagesService implements OnModuleInit, OnModuleDestroy {
   }
 
   async cancel(id: string, senderId: string): Promise<void> {
-    if (!(await this.repository.deletePending(id, senderId))) throw new NotFoundException('Scheduled message not found');
+    if (!(await this.repository.deletePending(id, senderId)))
+      throw new NotFoundException('Scheduled message not found');
   }
 
   /** One worker pass. Re-entrancy guarded so a slow batch never overlaps the next tick. */

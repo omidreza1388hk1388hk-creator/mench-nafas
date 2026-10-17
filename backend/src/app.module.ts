@@ -38,9 +38,7 @@ import { TwoStepModule } from './modules/two-step/two-step.module';
     }),
     // Global request rate limiting. Auth endpoints layer stricter,
     // OTP-specific limits on top of this via AuthThrottlerGuard.
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 120 },
-    ]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     DatabaseModule,
     RedisModule,
     StorageModule,

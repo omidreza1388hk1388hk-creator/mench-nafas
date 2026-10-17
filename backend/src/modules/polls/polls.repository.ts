@@ -27,7 +27,13 @@ interface VoteRow {
 export class PollsRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async create(input: { conversationId: string; creatorId: string; question: string; multiple: boolean; options: string[] }): Promise<string> {
+  async create(input: {
+    conversationId: string;
+    creatorId: string;
+    question: string;
+    multiple: boolean;
+    options: string[];
+  }): Promise<string> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -37,7 +43,10 @@ export class PollsRepository {
       );
       const pollId = rows[0].id;
       for (let i = 0; i < input.options.length; i++) {
-        await client.query(`INSERT INTO poll_options (poll_id, position, text) VALUES ($1, $2, $3)`, [pollId, i, input.options[i]]);
+        await client.query(
+          `INSERT INTO poll_options (poll_id, position, text) VALUES ($1, $2, $3)`,
+          [pollId, i, input.options[i]],
+        );
       }
       await client.query('COMMIT');
       return pollId;
@@ -53,7 +62,10 @@ export class PollsRepository {
     const { rows } = await this.pool.query<PollRow>(`SELECT * FROM polls WHERE id = $1`, [pollId]);
     const poll = rows[0];
     if (!poll) return null;
-    const options = await this.pool.query<OptionRow>(`SELECT id, text FROM poll_options WHERE poll_id = $1 ORDER BY position`, [pollId]);
+    const options = await this.pool.query<OptionRow>(
+      `SELECT id, text FROM poll_options WHERE poll_id = $1 ORDER BY position`,
+      [pollId],
+    );
     const votes = await this.pool.query<VoteRow>(
       `SELECT option_id, user_id FROM poll_votes WHERE poll_id = $1 ORDER BY created_at`,
       [pollId],
@@ -72,12 +84,19 @@ export class PollsRepository {
       multiple: poll.multiple,
       closed: poll.closed_at !== null,
       createdAt: poll.created_at.toISOString(),
-      options: options.rows.map((o) => ({ id: o.id, text: o.text, voterIds: byOption.get(o.id) ?? [] })),
+      options: options.rows.map((o) => ({
+        id: o.id,
+        text: o.text,
+        voterIds: byOption.get(o.id) ?? [],
+      })),
     };
   }
 
   async listOptionIds(pollId: string): Promise<string[]> {
-    const { rows } = await this.pool.query<{ id: string }>(`SELECT id FROM poll_options WHERE poll_id = $1`, [pollId]);
+    const { rows } = await this.pool.query<{ id: string }>(
+      `SELECT id FROM poll_options WHERE poll_id = $1`,
+      [pollId],
+    );
     return rows.map((r) => r.id);
   }
 
@@ -86,9 +105,15 @@ export class PollsRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`DELETE FROM poll_votes WHERE poll_id = $1 AND user_id = $2`, [pollId, userId]);
+      await client.query(`DELETE FROM poll_votes WHERE poll_id = $1 AND user_id = $2`, [
+        pollId,
+        userId,
+      ]);
       for (const optionId of optionIds) {
-        await client.query(`INSERT INTO poll_votes (poll_id, option_id, user_id) VALUES ($1, $2, $3)`, [pollId, optionId, userId]);
+        await client.query(
+          `INSERT INTO poll_votes (poll_id, option_id, user_id) VALUES ($1, $2, $3)`,
+          [pollId, optionId, userId],
+        );
       }
       await client.query('COMMIT');
     } catch (err) {
@@ -100,6 +125,8 @@ export class PollsRepository {
   }
 
   async close(pollId: string): Promise<void> {
-    await this.pool.query(`UPDATE polls SET closed_at = COALESCE(closed_at, now()) WHERE id = $1`, [pollId]);
+    await this.pool.query(`UPDATE polls SET closed_at = COALESCE(closed_at, now()) WHERE id = $1`, [
+      pollId,
+    ]);
   }
 }

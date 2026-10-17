@@ -62,7 +62,9 @@ describe('MessagesService', () => {
       listReactionsForMessages: jest.fn().mockResolvedValue(new Map()),
     } as unknown as jest.Mocked<MessagesRepository>;
 
-    conversationsService = { assertMember: jest.fn() } as unknown as jest.Mocked<ConversationsService>;
+    conversationsService = {
+      assertMember: jest.fn(),
+    } as unknown as jest.Mocked<ConversationsService>;
     conversationsRepo = {
       listOtherMemberIds: jest.fn(),
       listMutedMemberIds: jest.fn().mockResolvedValue([]),
@@ -72,8 +74,13 @@ describe('MessagesService', () => {
     } as unknown as jest.Mocked<ConversationsRepository>;
     attachmentsService = { findById: jest.fn() } as unknown as jest.Mocked<AttachmentsService>;
     usersService = { findById: jest.fn() } as unknown as jest.Mocked<UsersService>;
-    notificationsService = { notifyNewMessage: jest.fn() } as unknown as jest.Mocked<NotificationsService>;
-    broadcaster = { broadcastToUsers: jest.fn(), isUserConnected: jest.fn() } as unknown as jest.Mocked<RealtimeBroadcaster>;
+    notificationsService = {
+      notifyNewMessage: jest.fn(),
+    } as unknown as jest.Mocked<NotificationsService>;
+    broadcaster = {
+      broadcastToUsers: jest.fn(),
+      isUserConnected: jest.fn(),
+    } as unknown as jest.Mocked<RealtimeBroadcaster>;
 
     service = new MessagesService(
       messagesRepo,
@@ -101,7 +108,12 @@ describe('MessagesService', () => {
     messagesRepo.createIdempotent.mockResolvedValue(sampleRow);
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
 
-    const dto = await service.send({ conversationId, senderId, clientMsgId: 'client-1', body: 'hello' });
+    const dto = await service.send({
+      conversationId,
+      senderId,
+      clientMsgId: 'client-1',
+      body: 'hello',
+    });
 
     expect(dto.sequence).toBe(42);
     expect(typeof dto.sequence).toBe('number');
@@ -146,7 +158,12 @@ describe('MessagesService', () => {
     messagesRepo.createIdempotent.mockResolvedValue(rowWithAttachment);
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
 
-    const dto = await service.send({ conversationId, senderId, clientMsgId: 'client-1', attachmentId: 'att-1' });
+    const dto = await service.send({
+      conversationId,
+      senderId,
+      clientMsgId: 'client-1',
+      attachmentId: 'att-1',
+    });
 
     expect(dto.attachment).toEqual({
       id: 'att-1',
@@ -166,26 +183,64 @@ describe('MessagesService', () => {
   it('a plain member cannot post in an admins-only channel, but an admin can', async () => {
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
     messagesRepo.createIdempotent.mockResolvedValue(sampleRow);
-    conversationsRepo.getSendContext.mockResolvedValue({ kind: 'group', role: 'member', sendMessages: 'admins', slowModeSeconds: 0, lastSentAt: null });
-    await expect(service.send({ conversationId, senderId, clientMsgId: 'c-1', body: 'hi' })).rejects.toBeInstanceOf(ForbiddenException);
+    conversationsRepo.getSendContext.mockResolvedValue({
+      kind: 'group',
+      role: 'member',
+      sendMessages: 'admins',
+      slowModeSeconds: 0,
+      lastSentAt: null,
+    });
+    await expect(
+      service.send({ conversationId, senderId, clientMsgId: 'c-1', body: 'hi' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(messagesRepo.createIdempotent).not.toHaveBeenCalled();
-    conversationsRepo.getSendContext.mockResolvedValue({ kind: 'group', role: 'admin', sendMessages: 'admins', slowModeSeconds: 0, lastSentAt: null });
-    await expect(service.send({ conversationId, senderId, clientMsgId: 'c-2', body: 'hi' })).resolves.toBeDefined();
+    conversationsRepo.getSendContext.mockResolvedValue({
+      kind: 'group',
+      role: 'admin',
+      sendMessages: 'admins',
+      slowModeSeconds: 0,
+      lastSentAt: null,
+    });
+    await expect(
+      service.send({ conversationId, senderId, clientMsgId: 'c-2', body: 'hi' }),
+    ).resolves.toBeDefined();
   });
 
   it('slow mode answers 429 with the seconds to wait, and exempts admins', async () => {
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
     messagesRepo.createIdempotent.mockResolvedValue(sampleRow);
-    conversationsRepo.getSendContext.mockResolvedValue({ kind: 'group', role: 'member', sendMessages: 'all', slowModeSeconds: 60, lastSentAt: new Date(Date.now() - 10_000) });
-    await expect(service.send({ conversationId, senderId, clientMsgId: 'c-3', body: 'hi' })).rejects.toMatchObject({ status: 429 });
-    conversationsRepo.getSendContext.mockResolvedValue({ kind: 'group', role: 'admin', sendMessages: 'all', slowModeSeconds: 60, lastSentAt: new Date(Date.now() - 10_000) });
-    await expect(service.send({ conversationId, senderId, clientMsgId: 'c-4', body: 'hi' })).resolves.toBeDefined();
+    conversationsRepo.getSendContext.mockResolvedValue({
+      kind: 'group',
+      role: 'member',
+      sendMessages: 'all',
+      slowModeSeconds: 60,
+      lastSentAt: new Date(Date.now() - 10_000),
+    });
+    await expect(
+      service.send({ conversationId, senderId, clientMsgId: 'c-3', body: 'hi' }),
+    ).rejects.toMatchObject({ status: 429 });
+    conversationsRepo.getSendContext.mockResolvedValue({
+      kind: 'group',
+      role: 'admin',
+      sendMessages: 'all',
+      slowModeSeconds: 60,
+      lastSentAt: new Date(Date.now() - 10_000),
+    });
+    await expect(
+      service.send({ conversationId, senderId, clientMsgId: 'c-4', body: 'hi' }),
+    ).resolves.toBeDefined();
   });
 
   it('a silent message is delivered live but sends no push notification', async () => {
     messagesRepo.createIdempotent.mockResolvedValue(sampleRow);
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
-    await service.send({ conversationId, senderId, clientMsgId: 'client-s', body: 'shh', silent: true });
+    await service.send({
+      conversationId,
+      senderId,
+      clientMsgId: 'client-s',
+      body: 'shh',
+      silent: true,
+    });
     expect(broadcaster.broadcastToUsers).toHaveBeenCalled();
     expect(notificationsService.notifyNewMessage).not.toHaveBeenCalled();
   });
@@ -212,7 +267,12 @@ describe('MessagesService', () => {
     messagesRepo.createIdempotent.mockResolvedValue(audioRow);
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
 
-    const dto = await service.send({ conversationId, senderId, clientMsgId: 'client-2', attachmentId: 'att-2' });
+    const dto = await service.send({
+      conversationId,
+      senderId,
+      clientMsgId: 'client-2',
+      attachmentId: 'att-2',
+    });
 
     expect(dto.attachment?.waveform).toBe('AQIDBAUGBwg=');
     expect(dto.attachment?.durationMs).toBe(4200);
@@ -222,7 +282,12 @@ describe('MessagesService', () => {
     attachmentsService.findById.mockResolvedValue(null);
 
     await expect(
-      service.send({ conversationId, senderId, clientMsgId: 'client-1', attachmentId: 'att-missing' }),
+      service.send({
+        conversationId,
+        senderId,
+        clientMsgId: 'client-1',
+        attachmentId: 'att-missing',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(messagesRepo.createIdempotent).not.toHaveBeenCalled();
   });
@@ -253,7 +318,7 @@ describe('MessagesService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('rejects editing another user\'s message', async () => {
+  it("rejects editing another user's message", async () => {
     messagesRepo.findById.mockResolvedValue(sampleRow); // sender_id === senderId, not otherMemberId
 
     await expect(
@@ -272,7 +337,11 @@ describe('MessagesService', () => {
 
   it('edit broadcasts message.updated only to other members', async () => {
     messagesRepo.findById.mockResolvedValue(sampleRow);
-    messagesRepo.editBody.mockResolvedValue({ ...sampleRow, body: 'edited', edited_at: new Date() });
+    messagesRepo.editBody.mockResolvedValue({
+      ...sampleRow,
+      body: 'edited',
+      edited_at: new Date(),
+    });
     conversationsRepo.listOtherMemberIds.mockResolvedValue([otherMemberId]);
 
     await service.edit(conversationId, sampleRow.id, senderId, 'edited');
@@ -283,7 +352,7 @@ describe('MessagesService', () => {
     );
   });
 
-  it('rejects deleting another user\'s message', async () => {
+  it("rejects deleting another user's message", async () => {
     messagesRepo.findById.mockResolvedValue(sampleRow);
 
     await expect(
@@ -314,10 +383,12 @@ describe('MessagesService', () => {
     await service.markRead(conversationId, senderId, 42);
 
     expect(messagesRepo.upsertReadReceipt).toHaveBeenCalledWith(conversationId, senderId, 42);
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
-      [otherMemberId],
-      { type: 'message.read', conversationId, userId: senderId, lastReadSequence: 42 },
-    );
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([otherMemberId], {
+      type: 'message.read',
+      conversationId,
+      userId: senderId,
+      lastReadSequence: 42,
+    });
   });
 });
 
@@ -327,29 +398,64 @@ describe('MessagesService.seenBy', () => {
     const repo = {
       findById: jest.fn().mockResolvedValue(message),
       listSeenBy: jest.fn().mockResolvedValue([
-        { user_id: 'u2', display_name: 'Sara', phone_e164: '+98900', read_at: new Date('2026-10-06T10:00:00Z') },
+        {
+          user_id: 'u2',
+          display_name: 'Sara',
+          phone_e164: '+98900',
+          read_at: new Date('2026-10-06T10:00:00Z'),
+        },
       ]),
     };
     const conv = { assertMember: jest.fn().mockResolvedValue(undefined) };
-    const service = new MessagesService(repo as any, conv as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
+    const service = new MessagesService(
+      repo as any,
+      conv as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
     return { service, repo };
   };
 
   it('returns readers to the sender', async () => {
-    const { service, repo } = build({ id: 'm1', conversation_id: 'c1', sender_id: sender, sequence: '7' });
+    const { service, repo } = build({
+      id: 'm1',
+      conversation_id: 'c1',
+      sender_id: sender,
+      sequence: '7',
+    });
     await expect(service.seenBy('c1', sender, 'm1')).resolves.toEqual([
-      { userId: 'u2', displayName: 'Sara', phoneE164: '+98900', readAt: '2026-10-06T10:00:00.000Z' },
+      {
+        userId: 'u2',
+        displayName: 'Sara',
+        phoneE164: '+98900',
+        readAt: '2026-10-06T10:00:00.000Z',
+      },
     ]);
     expect(repo.listSeenBy).toHaveBeenCalledWith('c1', 7, sender);
   });
 
   it('refuses anyone but the sender and unknown / foreign messages', async () => {
     const other = build({ id: 'm1', conversation_id: 'c1', sender_id: sender, sequence: '7' });
-    await expect(other.service.seenBy('c1', 'someone-else', 'm1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(other.service.seenBy('c1', 'someone-else', 'm1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     const missing = build(null);
-    await expect(missing.service.seenBy('c1', sender, 'm1')).rejects.toBeInstanceOf(NotFoundException);
-    const foreign = build({ id: 'm1', conversation_id: 'other-conv', sender_id: sender, sequence: '7' });
-    await expect(foreign.service.seenBy('c1', sender, 'm1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(missing.service.seenBy('c1', sender, 'm1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    const foreign = build({
+      id: 'm1',
+      conversation_id: 'other-conv',
+      sender_id: sender,
+      sequence: '7',
+    });
+    await expect(foreign.service.seenBy('c1', sender, 'm1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
 
@@ -357,27 +463,52 @@ describe('MessagesService.editHistory', () => {
   const build = (message: any) => {
     const repo = {
       findById: jest.fn().mockResolvedValue(message),
-      listEdits: jest.fn().mockResolvedValue([{ old_body: 'first', edited_at: new Date('2026-10-06T10:00:00Z') }]),
+      listEdits: jest
+        .fn()
+        .mockResolvedValue([{ old_body: 'first', edited_at: new Date('2026-10-06T10:00:00Z') }]),
     };
     const conv = { assertMember: jest.fn().mockResolvedValue(undefined) };
-    const service = new MessagesService(repo as any, conv as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
+    const service = new MessagesService(
+      repo as any,
+      conv as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
     return { service, repo };
   };
 
   it('returns earlier versions to any member', async () => {
-    const { service } = build({ id: 'm1', conversation_id: 'c1', sender_id: 'a', deleted_at: null });
+    const { service } = build({
+      id: 'm1',
+      conversation_id: 'c1',
+      sender_id: 'a',
+      deleted_at: null,
+    });
     await expect(service.editHistory('c1', 'b', 'm1')).resolves.toEqual([
       { body: 'first', replacedAt: '2026-10-06T10:00:00.000Z' },
     ]);
   });
 
   it('returns nothing for a deleted message and 404s a foreign or unknown one', async () => {
-    const deleted = build({ id: 'm1', conversation_id: 'c1', sender_id: 'a', deleted_at: new Date() });
+    const deleted = build({
+      id: 'm1',
+      conversation_id: 'c1',
+      sender_id: 'a',
+      deleted_at: new Date(),
+    });
     await expect(deleted.service.editHistory('c1', 'b', 'm1')).resolves.toEqual([]);
     expect(deleted.repo.listEdits).not.toHaveBeenCalled();
     const missing = build(null);
-    await expect(missing.service.editHistory('c1', 'b', 'm1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(missing.service.editHistory('c1', 'b', 'm1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     const foreign = build({ id: 'm1', conversation_id: 'zzz', sender_id: 'a', deleted_at: null });
-    await expect(foreign.service.editHistory('c1', 'b', 'm1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(foreign.service.editHistory('c1', 'b', 'm1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

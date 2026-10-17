@@ -7,8 +7,10 @@ export const TICKET_TTL_MINUTES = 5;
 export const MAX_TICKET_ATTEMPTS = 5;
 
 export function passwordProblem(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
-  if (password.length > MAX_PASSWORD_LENGTH) return `Password must be at most ${MAX_PASSWORD_LENGTH} characters`;
+  if (password.length < MIN_PASSWORD_LENGTH)
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  if (password.length > MAX_PASSWORD_LENGTH)
+    return `Password must be at most ${MAX_PASSWORD_LENGTH} characters`;
   if (/^(.)\1+$/.test(password)) return 'Password cannot be a single repeated character';
   return null;
 }

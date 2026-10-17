@@ -13,7 +13,11 @@ describe('CanvasService', () => {
   let service: CanvasService;
 
   beforeEach(() => {
-    canvas = { get: jest.fn().mockResolvedValue([]), append: jest.fn().mockResolvedValue(1), clear: jest.fn() };
+    canvas = {
+      get: jest.fn().mockResolvedValue([]),
+      append: jest.fn().mockResolvedValue(1),
+      clear: jest.fn(),
+    };
     conversations = {
       isMember: jest.fn().mockResolvedValue(true),
       isGroup: jest.fn().mockResolvedValue(false),
@@ -24,19 +28,28 @@ describe('CanvasService', () => {
   });
 
   it('appends sanitized strokes stamped with the author and tells the partner', async () => {
-    await expect(service.append('conv-1', userA, [{ ...stroke, evil: 1 }])).resolves.toEqual({ count: 1 });
+    await expect(service.append('conv-1', userA, [{ ...stroke, evil: 1 }])).resolves.toEqual({
+      count: 1,
+    });
     expect(canvas.append).toHaveBeenCalledWith('conv-1', [{ ...stroke, by: userA }]);
-    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], { type: 'canvas.changed', conversationId: 'conv-1' });
+    expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith([userB], {
+      type: 'canvas.changed',
+      conversationId: 'conv-1',
+    });
   });
 
   it('rejects invalid strokes without touching the database', async () => {
-    await expect(service.append('conv-1', userA, [{ ...stroke, color: 'blue' }])).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.append('conv-1', userA, [{ ...stroke, color: 'blue' }]),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(canvas.append).not.toHaveBeenCalled();
   });
 
   it('rejects when the canvas would overflow', async () => {
     canvas.get.mockResolvedValue(Array(MAX_STROKES_PER_CANVAS).fill(stroke));
-    await expect(service.append('conv-1', userA, [stroke])).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.append('conv-1', userA, [stroke])).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('clears and notifies; is unavailable in groups and to non-members', async () => {

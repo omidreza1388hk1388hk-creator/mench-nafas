@@ -82,10 +82,17 @@ object VideoTranscoder {
                     handler.postDelayed(this, 300)
                 }
             }
-            val resize = if (heightPx >= widthPx) {
-                Presentation.createForHeight(minOf(heightPx, MAX_LONG_EDGE))
+            // media3 1.4.x has no width-only Presentation factory, so the long
+            // edge is capped explicitly and the short edge follows the source
+            // aspect ratio (kept even, as H.264 encoders require).
+            val safeW = widthPx.coerceAtLeast(2)
+            val safeH = heightPx.coerceAtLeast(2)
+            val resize = if (safeH >= safeW) {
+                Presentation.createForHeight(minOf(safeH, MAX_LONG_EDGE))
             } else {
-                Presentation.createForWidth(minOf(widthPx, MAX_LONG_EDGE))
+                val outW = minOf(safeW, MAX_LONG_EDGE)
+                val outH = ((outW.toLong() * safeH / safeW).toInt() and 1.inv()).coerceAtLeast(2)
+                Presentation.createForWidthAndHeight(outW, outH, Presentation.LAYOUT_SCALE_TO_FIT)
             }
             val edited = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(source)))
                 .setEffects(Effects(emptyList(), listOf(resize)))

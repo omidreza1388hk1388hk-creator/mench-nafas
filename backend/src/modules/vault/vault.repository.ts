@@ -39,7 +39,10 @@ export class VaultRepository {
   }
 
   async findById(itemId: string): Promise<VaultRow | null> {
-    const { rows } = await this.pool.query<VaultRow>('SELECT * FROM couple_vault_items WHERE id = $1', [itemId]);
+    const { rows } = await this.pool.query<VaultRow>(
+      'SELECT * FROM couple_vault_items WHERE id = $1',
+      [itemId],
+    );
     return rows[0] ?? null;
   }
 

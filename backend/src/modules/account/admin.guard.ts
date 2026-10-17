@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { timingSafeEqual } from 'crypto';
 
 function matches(given: string, expected: string | undefined): boolean {
@@ -18,7 +24,8 @@ export class AdminGuard implements CanActivate {
     const adminKey = process.env.ADMIN_API_KEY;
     if (!adminKey || adminKey.length < 16) throw new NotFoundException();
     const req = context.switchToHttp().getRequest();
-    if (!matches(String(req.headers['x-admin-key'] ?? ''), adminKey)) throw new UnauthorizedException('Bad admin key');
+    if (!matches(String(req.headers['x-admin-key'] ?? ''), adminKey))
+      throw new UnauthorizedException('Bad admin key');
     req.adminRole = 'admin';
     return true;
   }
@@ -33,11 +40,18 @@ export class ModeratorGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const adminKey = process.env.ADMIN_API_KEY;
     const modKey = process.env.MODERATOR_API_KEY;
-    if (!(adminKey && adminKey.length >= 16) && !(modKey && modKey.length >= 16)) throw new NotFoundException();
+    if (!(adminKey && adminKey.length >= 16) && !(modKey && modKey.length >= 16))
+      throw new NotFoundException();
     const req = context.switchToHttp().getRequest();
     const given = String(req.headers['x-admin-key'] ?? '');
-    if (matches(given, adminKey)) { req.adminRole = 'admin'; return true; }
-    if (matches(given, modKey)) { req.adminRole = 'moderator'; return true; }
+    if (matches(given, adminKey)) {
+      req.adminRole = 'admin';
+      return true;
+    }
+    if (matches(given, modKey)) {
+      req.adminRole = 'moderator';
+      return true;
+    }
     throw new UnauthorizedException('Bad key');
   }
 }

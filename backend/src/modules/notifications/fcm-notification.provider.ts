@@ -26,17 +26,19 @@ export class FcmNotificationProvider implements NotificationProvider {
     // and if this provider is ever constructed more than once in the
     // same process) rather than calling initializeApp() unconditionally,
     // which throws on a second call.
-    const app: App = getApps()[0] ?? initializeApp({
-      credential: cert({
-        projectId: credentials.projectId,
-        clientEmail: credentials.clientEmail,
-        // .env values commonly escape real newlines as literal "\n" —
-        // Firebase's private key parser requires actual newline
-        // characters, so this must be un-escaped here, once, at the
-        // boundary — not left for every call site to remember.
-        privateKey: credentials.privateKey.replace(/\\n/g, '\n'),
-      }),
-    });
+    const app: App =
+      getApps()[0] ??
+      initializeApp({
+        credential: cert({
+          projectId: credentials.projectId,
+          clientEmail: credentials.clientEmail,
+          // .env values commonly escape real newlines as literal "\n" —
+          // Firebase's private key parser requires actual newline
+          // characters, so this must be un-escaped here, once, at the
+          // boundary — not left for every call site to remember.
+          privateKey: credentials.privateKey.replace(/\\n/g, '\n'),
+        }),
+      });
     this.messaging = getMessaging(app);
   }
 

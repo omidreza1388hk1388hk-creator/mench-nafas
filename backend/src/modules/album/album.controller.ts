@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../sessions/jwt-auth.guard';
 import { CreateAlbumItemDto, ReactAlbumItemDto } from './dto/album.dto';
@@ -16,7 +27,11 @@ export class AlbumController {
 
   @Post()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  create(@Req() req: any, @Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateAlbumItemDto) {
+  create(
+    @Req() req: any,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body() dto: CreateAlbumItemDto,
+  ) {
     return this.albumService.create(conversationId, req.user.sub, dto);
   }
 

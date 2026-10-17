@@ -19,7 +19,9 @@ describe('AccountService', () => {
       countEvent: jest.fn(),
       addFeedback: jest.fn(),
     } as unknown as jest.Mocked<AccountRepository>;
-    service = new AccountService(repo, { assertCanSend: jest.fn().mockResolvedValue(undefined) } as any);
+    service = new AccountService(repo, {
+      assertCanSend: jest.fn().mockResolvedValue(undefined),
+    } as any);
   });
 
   it('refuses to block yourself', async () => {

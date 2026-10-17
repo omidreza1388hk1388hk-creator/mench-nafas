@@ -34,13 +34,9 @@ export class KavenegarSmsProvider implements SmsProvider {
 
     // Kavenegar's lookup API expects a local-format Iranian number
     // (0912...) rather than E.164 (+98912...) — strip the +98 prefix.
-    const receptor = phoneE164.startsWith('+98')
-      ? '0' + phoneE164.slice(3)
-      : phoneE164;
+    const receptor = phoneE164.startsWith('+98') ? '0' + phoneE164.slice(3) : phoneE164;
 
-    const url = new URL(
-      `https://api.kavenegar.com/v1/${apiKey}/verify/lookup.json`,
-    );
+    const url = new URL(`https://api.kavenegar.com/v1/${apiKey}/verify/lookup.json`);
     url.searchParams.set('receptor', receptor);
     url.searchParams.set('token', code);
     url.searchParams.set('template', template);
@@ -51,12 +47,8 @@ export class KavenegarSmsProvider implements SmsProvider {
     };
 
     if (!response.ok || body?.return?.status !== 200) {
-      this.logger.error(
-        `Kavenegar OTP send failed for ${receptor}: ${JSON.stringify(body)}`,
-      );
-      throw new Error(
-        `Kavenegar OTP send failed: ${body?.return?.message ?? response.statusText}`,
-      );
+      this.logger.error(`Kavenegar OTP send failed for ${receptor}: ${JSON.stringify(body)}`);
+      throw new Error(`Kavenegar OTP send failed: ${body?.return?.message ?? response.statusText}`);
     }
   }
 }

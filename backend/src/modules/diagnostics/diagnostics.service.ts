@@ -66,7 +66,12 @@ export class DiagnosticsService {
         latencyMs,
       };
     } catch {
-      return { name: 'database', status: 'fail', detail: 'Could not reach the database', latencyMs: Date.now() - start };
+      return {
+        name: 'database',
+        status: 'fail',
+        detail: 'Could not reach the database',
+        latencyMs: Date.now() - start,
+      };
     }
   }
 
@@ -82,7 +87,12 @@ export class DiagnosticsService {
         latencyMs,
       };
     } catch {
-      return { name: 'redis', status: 'fail', detail: 'Could not reach Redis', latencyMs: Date.now() - start };
+      return {
+        name: 'redis',
+        status: 'fail',
+        detail: 'Could not reach Redis',
+        latencyMs: Date.now() - start,
+      };
     }
   }
 
@@ -93,9 +103,19 @@ export class DiagnosticsService {
       await this.storage.put(RESERVED_STORAGE_KEY, Buffer.from('ok'), 'text/plain');
       await this.storage.get(RESERVED_STORAGE_KEY);
       await this.storage.delete(RESERVED_STORAGE_KEY);
-      return { name: 'storage', status: 'pass', detail: 'Read/write verified', latencyMs: Date.now() - start };
+      return {
+        name: 'storage',
+        status: 'pass',
+        detail: 'Read/write verified',
+        latencyMs: Date.now() - start,
+      };
     } catch {
-      return { name: 'storage', status: 'fail', detail: 'Could not write to storage', latencyMs: Date.now() - start };
+      return {
+        name: 'storage',
+        status: 'fail',
+        detail: 'Could not write to storage',
+        latencyMs: Date.now() - start,
+      };
     }
   }
 }

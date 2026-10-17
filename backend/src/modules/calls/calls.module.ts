@@ -9,7 +9,13 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
-  imports: [CallsRepositoryModule, ConversationsModule, UsersModule, RealtimeModule, SessionsModule],
+  imports: [
+    CallsRepositoryModule,
+    ConversationsModule,
+    UsersModule,
+    RealtimeModule,
+    SessionsModule,
+  ],
   controllers: [CallsController],
   providers: [CallsService, IceServersService],
 })

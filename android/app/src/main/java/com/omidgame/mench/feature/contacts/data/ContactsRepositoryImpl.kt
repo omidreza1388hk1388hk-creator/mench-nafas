@@ -34,36 +34,38 @@ class ContactsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ContactsRepository {
 
-    override suspend fun syncContacts(): ContactsResult<List<Contact>> = try {
-        // Privacy switch (Settings > Contact privacy): when off, nothing is read and nothing is sent.
-        if (!syncPrefs.syncEnabled) {
-            return ContactsResult.Failure(context.getString(R.string.contact_sync_off_message))
-        }
-        val deviceContacts = deviceContactsReader.readAll()
-        if (deviceContacts.isEmpty()) {
-            return ContactsResult.Success(emptyList())
-        }
+    override suspend fun syncContacts(): ContactsResult<List<Contact>> {
+        return try {
+            // Privacy switch (Settings > Contact privacy): when off, nothing is read and nothing is sent.
+            if (!syncPrefs.syncEnabled) {
+                return ContactsResult.Failure(context.getString(R.string.contact_sync_off_message))
+            }
+            val deviceContacts = deviceContactsReader.readAll()
+            if (deviceContacts.isEmpty()) {
+                return ContactsResult.Success(emptyList())
+            }
 
-        val matchedByPhone = usersApi.lookupBatch(LookupUsersBatchBody(deviceContacts.map { it.phoneE164 }))
-            .associateBy { it.phoneE164 }
+            val matchedByPhone = usersApi.lookupBatch(LookupUsersBatchBody(deviceContacts.map { it.phoneE164 }))
+                .associateBy { it.phoneE164 }
 
-        val contacts = deviceContacts.mapNotNull { deviceContact ->
-            val match = matchedByPhone[deviceContact.phoneE164] ?: return@mapNotNull null
-            Contact(
-                userId = match.id,
-                deviceContactName = deviceContact.name,
-                phoneE164 = match.phoneE164,
-                displayName = match.displayName,
-                username = match.username,
-                avatarUrl = match.avatarUrl,
-            )
+            val contacts = deviceContacts.mapNotNull { deviceContact ->
+                val match = matchedByPhone[deviceContact.phoneE164] ?: return@mapNotNull null
+                Contact(
+                    userId = match.id,
+                    deviceContactName = deviceContact.name,
+                    phoneE164 = match.phoneE164,
+                    displayName = match.displayName,
+                    username = match.username,
+                    avatarUrl = match.avatarUrl,
+                )
+            }
+            syncPrefs.lastSyncAtEpochMillis = System.currentTimeMillis()
+            syncPrefs.lastMatchCount = contacts.size
+            ContactsResult.Success(contacts)
+        } catch (e: IOException) {
+            ContactsResult.Failure(e.message)
+        } catch (e: HttpException) {
+            ContactsResult.Failure(e.message)
         }
-        syncPrefs.lastSyncAtEpochMillis = System.currentTimeMillis()
-        syncPrefs.lastMatchCount = contacts.size
-        ContactsResult.Success(contacts)
-    } catch (e: IOException) {
-        ContactsResult.Failure(e.message)
-    } catch (e: HttpException) {
-        ContactsResult.Failure(e.message)
     }
 }

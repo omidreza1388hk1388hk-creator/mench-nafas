@@ -2,7 +2,10 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
 import { DEFAULT_PRIVACY, normalizeDisappearSeconds } from './privacy.types';
 
-function build(settings = { ...DEFAULT_PRIVACY }, membership: any = { kind: 'direct', role: 'member' }) {
+function build(
+  settings = { ...DEFAULT_PRIVACY },
+  membership: any = { kind: 'direct', role: 'member' },
+) {
   const repo = {
     get: jest.fn().mockResolvedValue(settings),
     save: jest.fn().mockResolvedValue(undefined),
@@ -39,8 +42,12 @@ describe('PrivacyService settings', () => {
 
   it('hidden users look like "not found" for discovery and photo', async () => {
     const { service } = build({ ...DEFAULT_PRIVACY, addMe: 'nobody', profilePhoto: 'nobody' });
-    await expect(service.assertDiscoverable('target', 'me')).rejects.toBeInstanceOf(NotFoundException);
-    await expect(service.assertPhotoVisible('target', 'me')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.assertDiscoverable('target', 'me')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(service.assertPhotoVisible('target', 'me')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('you can always see your own photo and find yourself', async () => {
@@ -62,13 +69,19 @@ describe('PrivacyService disappearing messages', () => {
     expect(repo.setDisappearSeconds).toHaveBeenCalledWith('c1', 86_400);
     expect(broadcaster.broadcastToUsers).toHaveBeenCalledWith(
       ['u1', 'u2'],
-      expect.objectContaining({ type: 'conversation.disappearing_changed', seconds: 86_400, changedBy: 'u1' }),
+      expect.objectContaining({
+        type: 'conversation.disappearing_changed',
+        seconds: 86_400,
+        changedBy: 'u1',
+      }),
     );
   });
 
   it('only a group owner may change a group timer', async () => {
     const { service } = build(undefined, { kind: 'group', role: 'member' });
-    await expect(service.setDisappearing('c1', 'u1', 86_400)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.setDisappearing('c1', 'u1', 86_400)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('a non-member gets 404, not 403', async () => {

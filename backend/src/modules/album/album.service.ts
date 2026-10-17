@@ -1,7 +1,16 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConversationsRepository } from '../conversations/conversations.repository';
 import { MemoriesRepository } from '../memories/memories.repository';
-import { REALTIME_BROADCASTER, RealtimeBroadcaster } from '../realtime/realtime-broadcaster.interface';
+import {
+  REALTIME_BROADCASTER,
+  RealtimeBroadcaster,
+} from '../realtime/realtime-broadcaster.interface';
 import { AlbumRepository, AlbumRow } from './album.repository';
 
 export const MAX_ALBUM_ITEMS = 300;
@@ -42,21 +51,40 @@ export class AlbumService {
     return (await this.albumRepository.list(conversationId, userId)).map((r) => toDto(r, userId));
   }
 
-  async create(conversationId: string, userId: string, dto: { attachmentId: string; caption?: string }): Promise<AlbumItemDto> {
+  async create(
+    conversationId: string,
+    userId: string,
+    dto: { attachmentId: string; caption?: string },
+  ): Promise<AlbumItemDto> {
     await this.assertDirectMember(conversationId, userId);
-    if (!(await this.memoriesRepository.isImageAttachmentOfConversation(dto.attachmentId, conversationId))) {
+    if (
+      !(await this.memoriesRepository.isImageAttachmentOfConversation(
+        dto.attachmentId,
+        conversationId,
+      ))
+    ) {
       throw new BadRequestException('attachmentId must be an image uploaded to this conversation');
     }
     if ((await this.albumRepository.count(conversationId)) >= MAX_ALBUM_ITEMS) {
       throw new BadRequestException(`The album holds at most ${MAX_ALBUM_ITEMS} photos`);
     }
-    const row = await this.albumRepository.create(conversationId, userId, dto.attachmentId, dto.caption?.trim() ?? '');
+    const row = await this.albumRepository.create(
+      conversationId,
+      userId,
+      dto.attachmentId,
+      dto.caption?.trim() ?? '',
+    );
     await this.notifyChanged(conversationId, userId);
     return toDto(row, userId);
   }
 
   /** Sets (or, with null, removes) your reaction to a photo. */
-  async react(conversationId: string, itemId: string, userId: string, emoji: string | null): Promise<void> {
+  async react(
+    conversationId: string,
+    itemId: string,
+    userId: string,
+    emoji: string | null,
+  ): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     await this.findInConversation(conversationId, itemId);
     await this.albumRepository.setReaction(itemId, userId, emoji);
@@ -66,14 +94,16 @@ export class AlbumService {
   async remove(conversationId: string, itemId: string, userId: string): Promise<void> {
     await this.assertDirectMember(conversationId, userId);
     const item = await this.findInConversation(conversationId, itemId);
-    if (item.author_id !== userId) throw new ForbiddenException('Only the author can delete a photo');
+    if (item.author_id !== userId)
+      throw new ForbiddenException('Only the author can delete a photo');
     await this.albumRepository.delete(itemId);
     await this.notifyChanged(conversationId, userId);
   }
 
   private async findInConversation(conversationId: string, itemId: string) {
     const item = await this.albumRepository.findById(itemId);
-    if (!item || item.conversation_id !== conversationId) throw new NotFoundException('Photo not found');
+    if (!item || item.conversation_id !== conversationId)
+      throw new NotFoundException('Photo not found');
     return item;
   }
 

@@ -7,7 +7,14 @@ import { STORAGE_PROVIDER } from '../../storage/storage.module';
 import { StorageProvider } from '../../storage/storage-provider.interface';
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const ALLOWED_AUDIO_MIME_TYPES = new Set(['audio/mp4', 'audio/m4a', 'audio/aac', 'audio/webm', 'audio/ogg', 'audio/mpeg']);
+const ALLOWED_AUDIO_MIME_TYPES = new Set([
+  'audio/mp4',
+  'audio/m4a',
+  'audio/aac',
+  'audio/webm',
+  'audio/ogg',
+  'audio/mpeg',
+]);
 const ALLOWED_VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/webm', 'video/3gpp']);
 const THUMBNAIL_MAX_DIMENSION_PX = 480;
 const MAX_VOICE_DURATION_MS = 10 * 60 * 1000; // 10 minutes — a sanity cap, not a product decision carved in stone
@@ -86,7 +93,9 @@ export class AttachmentsService {
         throw new BadRequestException('durationMs is required for audio attachments');
       }
       if (input.durationMs > MAX_VOICE_DURATION_MS) {
-        throw new BadRequestException(`Voice messages are capped at ${MAX_VOICE_DURATION_MS / 60_000} minutes`);
+        throw new BadRequestException(
+          `Voice messages are capped at ${MAX_VOICE_DURATION_MS / 60_000} minutes`,
+        );
       }
       durationMs = input.durationMs;
     }
@@ -95,7 +104,9 @@ export class AttachmentsService {
         throw new BadRequestException('durationMs is required for video attachments');
       }
       if (input.durationMs > MAX_VIDEO_DURATION_MS) {
-        throw new BadRequestException(`Videos are capped at ${MAX_VIDEO_DURATION_MS / 60_000} minutes`);
+        throw new BadRequestException(
+          `Videos are capped at ${MAX_VIDEO_DURATION_MS / 60_000} minutes`,
+        );
       }
       durationMs = input.durationMs;
     }
@@ -118,7 +129,10 @@ export class AttachmentsService {
       heightPx = metadata.height ?? null;
 
       const thumbnailBuffer = await sharp(input.buffer)
-        .resize(THUMBNAIL_MAX_DIMENSION_PX, THUMBNAIL_MAX_DIMENSION_PX, { fit: 'inside', withoutEnlargement: true })
+        .resize(THUMBNAIL_MAX_DIMENSION_PX, THUMBNAIL_MAX_DIMENSION_PX, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
         .webp({ quality: 70 })
         .toBuffer();
 
@@ -134,7 +148,10 @@ export class AttachmentsService {
       if (input.thumbnailBuffer && input.thumbnailBuffer.length > 0) {
         blurHash = await this.computeBlurHash(input.thumbnailBuffer);
         const resizedThumbnail = await sharp(input.thumbnailBuffer)
-          .resize(THUMBNAIL_MAX_DIMENSION_PX, THUMBNAIL_MAX_DIMENSION_PX, { fit: 'inside', withoutEnlargement: true })
+          .resize(THUMBNAIL_MAX_DIMENSION_PX, THUMBNAIL_MAX_DIMENSION_PX, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
           .webp({ quality: 70 })
           .toBuffer();
 

@@ -28,13 +28,16 @@ interface DeviceSessionResponse {
   isCurrent: boolean;
 }
 
-function toDeviceSessionResponse(currentDeviceId: string | undefined, device: {
-  id: string;
-  device_name: string;
-  platform: string;
-  last_seen_at: Date | null;
-  created_at: Date;
-}): DeviceSessionResponse {
+function toDeviceSessionResponse(
+  currentDeviceId: string | undefined,
+  device: {
+    id: string;
+    device_name: string;
+    platform: string;
+    last_seen_at: Date | null;
+    created_at: Date;
+  },
+): DeviceSessionResponse {
   return {
     id: device.id,
     deviceName: device.device_name,
